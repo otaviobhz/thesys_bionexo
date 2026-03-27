@@ -205,27 +205,90 @@ export class BionexoService {
     }
   }
 
+  private buildWHSXml(cotacao: any): string {
+    const itensXml = cotacao.itens.map((item: any) => `
+    <Item>
+      <Id_Item_PDC>${item.sequencia}</Id_Item_PDC>
+      <Preco_Unitario>${(item.precoUnitario || 0).toFixed(2).replace('.', ',')}</Preco_Unitario>
+      <Codigo_Produto>${item.codigoInterno || ''}</Codigo_Produto>
+      <Observacao>${item.comentario || ''}</Observacao>
+    </Item>`).join('')
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Cotacoes>
+  <Cotacao>
+    <Id_PDC>${cotacao.bionexoId}</Id_PDC>
+    <Itens>${itensXml}
+    </Itens>
+  </Cotacao>
+</Cotacoes>`
+  }
+
   async enviarCotacao(cotacaoId: string) {
     const cotacao = await this.prisma.cotacao.findUnique({
       where: { id: cotacaoId },
-      include: { itens: { where: { categoria: 'COTADO' } } },
+      include: { itens: true },
     })
     if (!cotacao) throw new Error('Cotação não encontrada')
 
-    // Build XML for WHS upload
-    // For now, log the attempt and update status
+    // Filter only items with price (ready to quote)
+    const itensParaEnviar = cotacao.itens.filter(i => i.precoUnitario && i.precoUnitario > 0)
+    if (itensParaEnviar.length === 0) {
+      throw new Error('Nenhum item com preço preenchido para enviar')
+    }
+
+    const cotacaoComItens = { ...cotacao, itens: itensParaEnviar }
+
+    // Build XML
+    const xml = this.buildWHSXml(cotacaoComItens)
+    this.logger.log(`[WHS] Sending ${itensParaEnviar.length} items for PDC ${cotacao.bionexoId}`)
+
+    let bionexoResult = 'Bionexo: stub (sandbox indisponível)'
+    try {
+      const config = await this.getConfig()
+      const client = await soap.createClientAsync(config.wsdlUrl)
+      const [result] = await client.postAsync({
+        login: config.usuario,
+        password: config.senha,
+        operation: 'WHS',
+        parameters: 'LAYOUT=WH',
+        xml,
+      })
+      const raw = String(result?.return || '')
+      this.logger.log(`[WHS] Response: ${raw.substring(0, 200)}`)
+      const parsed = this.parseResponse(raw)
+      bionexoResult = parsed.status > 0
+        ? `Bionexo: enviada com sucesso (ID: ${parsed.timestamp})`
+        : parsed.status === 0 ? 'Bionexo: processada sem retorno'
+        : `Bionexo: erro - ${parsed.data}`
+    } catch (error: any) {
+      let msg = error.message || 'Erro SOAP'
+      if (msg.includes('Reference') || msg.includes('503') || msg.includes('edgesuite')) {
+        bionexoResult = 'Bionexo: temporariamente indisponível (503)'
+      } else {
+        bionexoResult = `Bionexo: ${msg}`
+      }
+    }
+
+    // Update status
     await this.prisma.cotacao.update({
       where: { id: cotacaoId },
-      data: { status: 'COTACAO_ENVIADA' },
+      data: { status: 'COTACAO_ENVIADA', syncedAt: new Date() },
+    })
+
+    // Mark items as COTADO
+    await this.prisma.cotacaoItem.updateMany({
+      where: { cotacaoId, precoUnitario: { not: null } },
+      data: { categoria: 'COTADO' },
     })
 
     await this.prisma.syncLog.create({
       data: {
         operacao: 'WHS',
         direcao: 'OUT',
-        status: 'SUCESSO',
-        mensagem: `Cotação ${cotacao.bionexoId} marcada como enviada`,
-        processadas: 1,
+        status: bionexoResult.includes('sucesso') || bionexoResult.includes('processada') ? 'SUCESSO' : 'ERRO',
+        mensagem: `PDC ${cotacao.bionexoId}: ${bionexoResult} | ${itensParaEnviar.length} itens`,
+        processadas: itensParaEnviar.length,
       },
     })
 

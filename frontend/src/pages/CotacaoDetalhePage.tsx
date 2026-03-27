@@ -235,16 +235,37 @@ export function CotacaoDetalhePage() {
     (it) => it.categoria === "INTERESSANTE" && !it.codigoInterno
   )
 
-  function handleSendCotacao() {
-    showToast("Cotação enviada com sucesso para a Bionexo!")
+  async function handleSendCotacao() {
+    showToast("Enviando cotação...")
+    try {
+      const cotacaoUuid = allItems[0]?.id?.split('-').slice(0, -1).join('-') // hack: get cotacao UUID
+      // Find cotacao UUID from API
+      const { data: cotData } = await api.get(`/cotacoes/${cotacaoIdNum}`)
+      const { data: result } = await api.post(`/bionexo/enviar/${cotData.id}`)
+      showToast(result.success ? `✅ ${result.message}` : `❌ ${result.message}`)
+    } catch (e: any) {
+      showToast(`❌ ${e.response?.data?.message || e.message}`)
+    }
   }
 
-  function handleCancelCotacao() {
-    showToast("Cotação cancelada.")
+  async function handleCancelCotacao() {
+    try {
+      const { data: cotData } = await api.get(`/cotacoes/${cotacaoIdNum}`)
+      await api.post(`/cotacoes/${cotData.id}/cancelar`)
+      showToast("✅ Cotação cancelada.")
+    } catch (e: any) {
+      showToast(`❌ ${e.response?.data?.message || e.message}`)
+    }
   }
 
-  function handleUpdateCotacao() {
-    showToast("Cotação atualizada com sucesso.")
+  async function handleUpdateCotacao() {
+    try {
+      const { data: cotData } = await api.get(`/cotacoes/${cotacaoIdNum}`)
+      const { data: result } = await api.post(`/bionexo/enviar/${cotData.id}`)
+      showToast(result.success ? `✅ Cotação atualizada.` : `❌ ${result.message}`)
+    } catch (e: any) {
+      showToast(`❌ ${e.response?.data?.message || e.message}`)
+    }
   }
 
   function showToast(msg: string) {
