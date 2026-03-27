@@ -1,0 +1,450 @@
+/bmad-help
+
+Chame o analista para um brainstorm, queor discutir como criar um prd extremamente compolexo e detalhado, porém o frontend já é fixo, modelos de dados já são bem detalhados, quero começar pelo mockup, e quero a cada rodada que você me diga qual o % de impolmenetação, primeira etapa é entender tudo e criar o prd, depois quero validar as telas em um mockup e depois quero realizar a execução do backend depois de tudo montado, e a etapa que vamos seguir eu quero que me peça as informações, quero um brainstorm real para criar este prd para executar esta aplicação.
+
+Existe uma plataforma no brasil que se chama bionexo, ela é um portal de cotações
+
+Eu tenho um ERP desenvolvido pelo nosso time que se chama Thesys.
+
+São 1500 cotações por dia
+
+Meu objetivo é criar um portal utiliznado a seguinte stack:
+
+Docker backend: Nestjs
+Docker frontend: React
+Docker Banco de dados: Postgres
+
+Toda acomunicação será feita por estas portas.
+
+PReciso que vc veja quais portas estão sendo usadas para sempre usar as demais portas
+
+Todas as praticas que eu uso no ./docs/Claude.md
+
+Todos os dados referente ao ERP Thesys e modelagem de dados estão estão no diretório ./docs/thesys e seus subdiretórios respectivamente
+
+Todas as questões refrente ao portal da bionexo estão aqui ... ./docs/BIONEXO DOCUMENTAÇÃO - EDI Webservice.pdf e a descrição da implementação que foi feita no passado, referente a telas e funiconaldiades vao estar neste arquivo doc:
+
+./docs/Suprimed BIONEXO - CRM e ERP - Guia.docx
+
+Impolrtantissimo usar as telas que temos hoje neste arquivo docx e que você consiga ler todos estes arquivos sem nenhuma restrição, caso não leia, quero que instale os mcps ou que instale o máximo skills ou outras coisas para que possa ler todos estes arquivos e ter uma visão clara do fuiocnamento do sistema.
+
+O padrão de frontend que quero utilizar será o padrão destes projeto, de cores e menu lateral: S:\home\otavio\Projetos_Oficial\ANFAVEA_B2B_Generator apenas o frontend e uiux, nada mais que isto, o stack que vou usar está descrito acima e devo usar as melhores pratica do Claude.md que te passei dentro do docs.
+
+Daniel Alves foi a pessoa que gerenciou o projeto, o que está faltando neste momento neste projeto que eu tenho.
+
+	- A planilha de de para do Daniel Alves, no momento oportuno irei levantar esta informação
+	- Segundo o time do Thanner/Gabriel, que são os donos da aplicação, eles possuem uma API que pode passar ou receber query, que irá validar e manter um formato de comunicação entre os arquivos
+	- Preicso validar as capacidades do sistem ada bionexo, tipo de comunicação (Edi ou Api) o que for mais fácil
+	- Vou usar o mesmo padrão de visualização que está descrito no arquivo ./docs/Suprimed BIONEXO - CRM e ERP - Guia.docx por isso é importante que eu veja todas as informações, telas e tudo mais
+	- Toda a parte de documentação da Bionexo está no arquivo .pdf que enviei
+
+Observações:
+
+	A ideia é criar uma comunicação entre Bionexo e Thesys para que eu possa executar as cotações e entrar via API/EDI no sistema Thesys na parte de cotações.
+	Existe um erro, aonde a planilha se chama Preço_Compras (que é a tabela de preço de vendas que vai para a cotação), deverá ser a tabela Preço_Vendas, esta modificação precisará ser realizada antes dos testes realizados
+	O key user é o prórpiro Daniel Alves
+	Temos o ambiente de teste do Thesys, que irá me passar qual é a Api que eu me comunico para poder fazer rodar.
+
+O Thesys - a Api eu consigo criar um Put e um Get ... Quero avaliar a melhor maneir ade montar isto de uma maneira que eu consigo fazer apenas a base que faz sentido buscar.
+
+Qeuro entender a melhor maneira de fazer, talvez fazer um bot para fazer esta importação a cada X minutos e um conceito de aprtar o botão e executar.
+
+O objetivo prinicplam deste detalhajmento é saber em qual momento e quando devo ter cada uma das informações e o objetivo será a integração do sistema bionexo, exatamente como já temos com o nosso sistema atual.
+
+O frontend vai copiar apenas as cores e os layouts que temos neste sistema, vamos utilizar um acesso apartado e vai ser um login específico criado para este sistema, o acesso não tem perfil, ele é mais simples.
+
+A ideia é criar isto tudo oneshot, preciso criar as telas diretamente em um mockup inicialmente para ver se a jornada do usuário está fuiconal como descreve no sistema.
+
+Como ele tem um CRM, eu quero elimiar as partes de frontend que estão descritas do Salesforce, apenas deixar as partes da integração e fazer rodar automaticamente.
+
+
+2 - Para o pós MVP, gostaria de criar uma etapa com LLM e gostaria de usar um middleware em uma próxima versão que utiliza que sugira a classificação de produtos de tempos em tempos de cotações que foram realizadas.
+
+Veja se faz sentido eu pegar um alista dos itens ativos e vendidos do ERP e que possa fazer uma referencia para lista de interesse, vai marcar a lista de interessem entre 0 e 100, os que tiver interesse acima de 50%, devem ter cores diferentes em uma tablea que vai visualizar a lista de interesse mostrando cores distintas entre amarelo e verde, para facilitar o usuário colocar no de para.
+
+Mas esta é uma segunda etapa, quero ordenar por potencial de interesse, entre amarelo e verde.
+
+Vamos começar estes brownfield e determinar todos os detalhes desta impolementação.
+
+
+
+
+----------------------------
+
+
+❯ Quero que inclua na questão do react, o favicon, o icone modo claro e icone modo escuro, para aparecerem no projeot, na paigna inicial de login, na pasta interna
+  quando estiver modo claro e modo escuro, pode usar tmabém as cores que estou sugrindo aqui? estao dentro de ./docs/icones  e quero que use este manual de marca para
+  cores e todos os detalhes referente a tipografia incllua este manual de marcas ao final dentro escrito .md, para ser implementado, antes da etapa final que vai
+  modificar e fazer a etapa que inclui ia.
+
+
+--------------------------------
+
+
+❯ pode incluir o logs? aonde tem tipo, e tem log de sync e tem log de acesso e lgo de cotacao, e tudo mais, coloque tudo isto no mockup, pois quero ter os logs todos,
+  quero fazer a gestao inteira? quero também um usuario master e outros slaves o unico acesso que o master tem adicional dos demais seria a questão de criar logine
+  senha, a principio este deve ser o master,  os demais sao usuarios, master e usuarios, ele podera resetar senhas, e criar usuarios, simples, o mais simples
+  possivel,pode validar e criar isto por favor?
+
+-------------------------------
+
+
+Telas do sistema:
+
+/braisntorm:
+
+
+Vamos fazer o brainstorm para entender o que precismao sadiconar as nossas telas?
+
+
+Tela 1: Login
+A tela inicial simples para acesso ao portal.
+
+Plaintext
+==================================================
+                 [ Logo do Sistema ]
+                 
+          E-mail: [ input text              ]
+          Senha:  [ input password          ]
+          
+                 [ Botão: ENTRAR ]
+==================================================
+
+
+TELA 2: PÁGINA GERAL DE PESQUISA (Dashboard Principal)
+Esta tela é o "Assistente Bionexo", a porta de entrada. O foco aqui é o cabeçalho de filtros e as ações de sincronização com o WebService.
+
+Barra de Ações Superiores (Sincronização):
+
+Plaintext
+[ Botão: 📥 Receber novos ] (Ativa integração manual: baixa atualizações, novas cotações, alterações e aprovações)
+[ Botão: 🔄 Atualizar ]     (Atualiza cotações já baixadas na base)
+Filtros de Busca:
+
+Plaintext
+Busca Livre:
+[ Input Text: Hospital, Produto Interno ou Descrição do Hospital ]
+
+Busca Direta:
+[ Input Number: Nº de ID da Cotação ]
+
+Filtro de Status (Estágio da Cotação):
+[ Dropdown ]
+  ├─ Todos
+  ├─ Recebido (Baixado na integração)
+  ├─ Pareado (Recebidas e com itens pareados)
+  ├─ Cotação enviada (Preenchidas e enviadas)
+  ├─ Em análise pelo hospital
+  ├─ Cotação aceita (1 ou mais itens ganhos)
+  ├─ Pedido gerado (Pedido criado no Thesys)
+  ├─ Adquirido de outra empresa (Perdidas/Fechadas com concorrente)
+  └─ Cancelado (Enviadas, mas canceladas posteriormente)
+
+Filtro de Categoria (Classificação Interna / Status por Linha):
+[ Dropdown ]
+  ├─ Todas as categorias
+  ├─ Não analisado (Sem avaliação ou sem palavras-chave pareadas)
+  ├─ Cotado (Respondidas e enviadas)
+  └─ Descartado (Sem interesse. Obs: não permite envio se houver 'Não analisado')
+
+[ Botão: 🔍 Filtrar / Ordenar ]
+TELA 3: LAYOUT EXCLUSIVO DE COTAÇÃO (Grid de Itens)
+Aqui entramos na estrutura da tabela. Pela sua descrição, esta grid mescla dados do cabeçalho da cotação (ID, UF, Cidade) com os dados da linha do item (Seq, Descrição, Qtde).
+
+Acima da tabela, precisamos da barra de ações em lote para classificar os itens selecionados nas caixas de seleção (checkbox).
+
+Ações de Classificação (Para itens selecionados na tabela):
+
+Plaintext
+[ Botão: ❌ Descartar ]   (Marca os itens para não serem enviados)
+[ Botão: ⭐ Interessante ] (Marca os itens habilitando-os para cotação)
+[ Botão: 🧠 Ensinar ]      (Abre modal para salvar palavra-chave e automatizar a classificação "Interessante" no futuro)
+Grid de Dados (Tabela com colunas exatas do guia):
+(Nota: As colunas de "Vencimento" e "Hora vencimento" devem permitir clique no cabeçalho para ordenação, trazendo os prazos mais próximos).
+
+Plaintext
+| [ ] | ID    | Venc.      | Hora Venc. | UF | Cidade    | Seq | Descrição           | Qtde | Und | Marca       | F. Pagto | Cód. Interno | Descrição SControl |
+|-----|-------|------------|------------|----|-----------|-----|---------------------|------|-----|-------------|----------|--------------|--------------------|
+| [ ] | 10293 | 25/03/2026 | 14:00 🔽   | SP | São Paulo | 1   | Seringa 10ml Luer   | 500  | CX  | BD, Injex   | 30 Dias  | 9928         | SERINGA 10ML       |
+| [ ] | 10293 | 25/03/2026 | 14:00 🔽   | SP | São Paulo | 2   | Gaze Estéril 13 Fios| 1000 | PCT | Cremer      | 30 Dias  |              |                    |
+| [ ] | 10295 | 26/03/2026 | 10:00 🔽   | RJ | Niterói   | 1   | Dipirona 500mg      | 200  | AMP | Sanofi      | 15 Dias  |              |                    |
+
+[ Paginação: < Anterior | 1 | 2 | 3 | Próxima > ]
+Legenda: [ ] representa o Checkbox para selecionar as linhas e aplicar os botões "Descartar", "Interessante" ou "Ensinar".
+
+Validação e Próximos Passos
+A estrutura acima reflete rigorosamente os textos e regras que você enviou:
+
+Os filtros de Status e Categoria estão com as opções corretas.
+
+A lógica de não permitir o envio se houver item "Não analisado" será uma regra de bloqueio no frontend.
+
+As colunas da tabela estão na ordem e nomenclatura exigidas.
+
+Os botões de classificação em lote (Descartar, Interessante, Ensinar) estão posicionados para atuar sobre a seleção.
+
+Para continuarmos o histórico com a mesma precisão, pode me enviar a continuação do documento? Gostaria de entender como ocorre a interação do usuário ao clicar no botão "Ensinar" (quais campos abrem?) e como é a tela exata de preenchimento de valores após marcar um item como "Interessante".
+
+5. DETALHAMENTO: TELA 4 - DICIONÁRIO DE PAREAMENTO E REGRAS (De/Para)
+Esta tela é fundamental para gerir o que foi "ensinado" ao sistema nos Modais A e B. Ela será dividida em dois separadores (Tabs) para facilitar a navegação do operador.
+
+Plaintext
+[ Título: 🔗 Dicionário de Inteligência e Pareamento ]
+
+[ SEPARADORES (TABS) ]
+[ 🔵 PAREAMENTOS DE PRODUTOS (SKUs) ]   [ ⚪ REGRAS DE PALAVRAS-CHAVE ]
+
+--------------------------------------------------------------------------------
+VISÃO DA TAB 1: PAREAMENTOS DE PRODUTOS (SKUs)
+Descrição: Lista de todos os produtos do Bionexo que já foram vinculados a um produto do ERP Thesys.
+
+Filtros de Busca:
+[ Input: Buscar por Descrição do Comprador ou SKU Thesys 🔍 ]
+
+[ TABELA DE PAREAMENTOS ATIVOS ]
+| ID Regra | Descrição do Comprador (Bionexo) | SKU Thesys | Descrição Interna (ERP)   | Data de Criação | Ações      |
+|----------|----------------------------------|------------|---------------------------|-----------------|------------|
+| #001     | Gaze Estéril 13 Fios             | 5512       | GAZE ESTERIL 13F PCT C/10 | 24/03/2026      | [ 🗑️ Desfazer ] |
+| #002     | Seringa 10ml Luer                | 9928       | SERINGA 10ML              | 20/03/2026      | [ 🗑️ Desfazer ] |
+
+Ação [ 🗑️ Desfazer ]: Remove o vínculo. Na próxima vez que este item aparecer numa cotação, ele não virá pareado e exigirá ação manual.
+--------------------------------------------------------------------------------
+Se o utilizador clicar na Tab 2 (Regras de Palavras-Chave):
+
+Plaintext
+--------------------------------------------------------------------------------
+VISÃO DA TAB 2: REGRAS DE PALAVRAS-CHAVE
+Descrição: Lista de termos que o sistema lê na descrição do Bionexo para pré-classificar o item automaticamente.
+
+Filtros de Busca:
+[ Input: Buscar Palavra-Chave 🔍 ]
+Status: [ Dropdown: Todas | Interessante | Descartar ]
+
+[ Botão: ➕ Adicionar Nova Regra Manualmente ]
+
+[ TABELA DE REGRAS DE PALAVRAS-CHAVE ]
+| ID Regra | Palavra-Chave Mapeada | Ação Automática na Integração | Data de Criação | Ações           |
+|----------|-----------------------|-------------------------------|-----------------|-----------------|
+| #101     | "Gaze Estéril"        | ⭐ Classificar: Interessante   | 24/03/2026      | [✏️ Editar] [🗑️] |
+| #102     | "Manutenção"          | ❌ Classificar: Descartar      | 22/03/2026      | [✏️ Editar] [🗑️] |
+| #103     | "Papel A4"            | ❌ Classificar: Descartar      | 21/03/2026      | [✏️ Editar] [🗑️] |
+--------------------------------------------------------------------------------
+6. DETALHAMENTO: TELA 5 - GESTÃO DE UTILIZADORES (USUÁRIOS MASTER)
+Esta é a tela administrativa que você solicitou, simples e direta, para dar acessos à equipa que vai operar as cotações.
+
+Plaintext
+[ Título: 👥 Gestão de Utilizadores do Sistema ]
+
+[ BLOCO 1: ADICIONAR NOVO UTILIZADOR ]
+Nome Completo: [ Input Text                         ]
+E-mail:        [ Input Text (Será o login)          ]
+Senha:         [ Input Password                     ]
+Confirmar:     [ Input Password                     ]
+Perfil de Acesso: 
+( ) Master (Acesso a configurações, utilizadores e exclusão)
+( ) Operador (Acesso apenas a cotações, ensinar e parear)
+
+[ Botão: ➕ Criar Utilizador ]
+--------------------------------------------------------------------------------
+
+[ BLOCO 2: LISTA DE UTILIZADORES CADASTRADOS ]
+Filtro: [ Input: Buscar por Nome ou E-mail 🔍 ]
+
+| Nome              | E-mail                    | Perfil     | Status     | Ações                   |
+|-------------------|---------------------------|------------|------------|-------------------------|
+| Otavio Pereira    | otavio@suprimed.com.br    | Master     | 🟢 Ativo   | [✏️ Editar] [Bloquear]  |
+| João Silva        | joao.cotacao@empresa.com  | Operador   | 🟢 Ativo   | [✏️ Editar] [Bloquear]  |
+| Maria Souza       | maria@empresa.com         | Operador   | 🔴 Inativo | [✏️ Editar] [Desbloquear]|
+
+Regras: 
+* O sistema não permite apagar o histórico de utilizadores para manter o log de quem enviou qual cotação. Utiliza-se apenas a opção de Inativar/Bloquear.
+--------------------------------------------------------------------------------
+RESUMO E STATUS ATUAL: 100% DO MOCKUP (MVP) CONCLUÍDO 🎯
+Chegámos aos 100% da definição de telas necessárias para fazer o sistema funcionar exatamente como descrito no seu documento .docx, contemplando toda a operação do Bionexo e as melhorias propostas face ao antigo SuperControl/CRM.
+
+Inventário Final das Telas (MVP):
+
+Ecrã de Login
+
+Painel de Cotações (Dashboard com Filtros e Integração)
+
+Tela Unificada de Cotação (Edição, Tabela e Envio)
+
+Modal: Ensinar Palavra-Chave
+
+Modal: Parear Produto
+
+Dicionário de Pareamentos e Palavras-Chave
+
+Gestão de Utilizadores (Master/Operador)
+
+
+Este deve ser o funcionamento para que vc possa fazer o mockup, pode faze risto pr oavor?
+
+
+
+
+1 – Para acessar o BIONEXO no CRM é necessário clicar no ícone de aplicativos logo a esquerda, já na barra de pesquisa procurar por ‘’Bionexo’’ e após selecionar o Assistente Bionexo.
+
+ 
+
+
+2 – Abaixo está o visual de layout da página geral de pesquisa das cotações, basicamente a tela de navegação da Bionexo dentro do CRM:
+ 
+
+
+
+
+FUNÇÃO DE CADA ÍCONE
+
+•	O campo abaixo é utilizado para filtrar as cotações, procurando por Hospital, produto (interno se pareado) ou descrição do hospital (o mais importante).
+ 
+
+•	Campo abaixo é utilizado para procurar por Nº de ID, basicamente procurar pelo número das cotações diretamente, quando já sabemos antes de 
+cotar.
+ 
+
+
+
+•	O campo Status é um filtro para procurar pelo estágio em que a cotação se encontra, sendo os status:
+
+
+ 
+
+
+1.	Todos: Filtra por todos os Status.
+2.	Recebido: Considera as cotações que o sistema baixou na integração.
+3.	Pareado: Considera as cotações que foram recebidas e foram pareadas.
+4.	Cotação enviada: Cotações preenchidas e envidas para o Bionexo.
+5.	Em análise pelo hospital: Cotações que estão sendo avaliadas pelo comprador.
+6.	Cotação aceita: Cotações que 1 item ou mais da ID foram ganhos e fechados conosco.
+7.	Pedido gerado: Cotações aceitas que tiveram pedidos gerados dentro do nosso sistema (CRM, ou no caso futuro Thesis).
+8.	Adquirido de outra empresa: Cotações que perdemos, mas que foram fechadas com outra empresa.
+9.	Cancelado: Cotações que foram enviadas por nós em algum momento, porém pedimos cancelamento através de uma função que irei explicar logo mais.
+
+
+
+
+
+
+•	O campo Categoria, basicamente é o antigo Status do Supercontrol...ele basicamente é a classificação que nosso sistema deu para a ID em sí após a integração ou que nós definimos manualmente:
+
+ 
+
+1.	Todas as categorias: Autoexplicativo.
+2.	Não analisado: Cotações que foram baixadas na integração, mas que num primeiro momento não foram avalias por nós ou pela própria integração por não ter nenhuma palavra de interesse ou pareamento de item...
+3.	Cotado: Cotações que já foram respondidas e enviadas ao Bionexo.
+4.	Descartado: Cotações que foram descartadas após avaliação, por não terem nenhum produto que iremos cotar.
+Vale ressaltar que esse status é por linha e não por número de ID em si... ou seja uma cotação pode ter: Itens descartados e interessantes..., porém no momento do envio não se pode ter itens não analisados na cotação.
+
+
+
+
+
+
+
+
+
+
+•	As funções abaixo são para:
+ 
+Receber novos: Basicamente ativa a integração manual e baixa todas as atualizações, novas cotações, alterações e aprovações.
+
+Atualizar: Atualiza as cotações já baixadas caso tenham tido alguma alteração na plataforma.
+
+COLUNAS ESSENCIAS NO LAYOUT DE COTAÇÃO
+
+ID: Coluna apresentando número da ID
+Vencimento: Coluna apresentando data de vencimento.
+Hora vencimento: Horário de vencimento, com possibilidade de orientação de ordenação do mais próximo.
+UF: Estado da cotação
+Cidade: Cidade da cotação
+Seq: Número do item dentro da sua cotação.
+Descrição: Descrição do produto solicitada pelo comprador.
+Qtde: Quantidade solicitada pelo comprador.
+Und medida: Unidade de medida pelo qual está sendo solicitada.
+Marca: Marcas especificadas aceitas pelo comprador.
+Forma de pagamento: Forma de pagamento solicitada pelo comprador.
+Código Interno: Quando o produto estiver pareado, apresentar o SKU nesse campo.
+Descrição SControl (Interna): Descrição do SKU no sistema.
+
+
+ 
+
+Interessante ter função de ordenação, com os filtros abaixo:
+ 
+
+Após selecionar os produtos, ter um layout exclusivo para cotação do BIONEXO:
+
+
+ 
+
+Das funções abaixo, segue sua utilidades:
+
+ 
+
+Descartar: Descarta os itens selecionados, para que não sejam enviados na cotação.
+Interessante: Status que os produtos selecionados pela integração ou manualmente pelo usuário ficam para poderem ser cotados.
+
+
+Ensinar: Função que pega palavras do descritivo selecionado e ensina ao sistema para que classifique como Interessantes na próxima integração:
+
+ 
+
+Parear: Função que literalmente linka o código do item solicitado pelo comprador do BIONEXO a um SKU em nosso sistema, colocando este item automaticamente como Interessante nas futuras integrações e já o deixando pronto para cotar, sendo interessante deixar que apenas itens pareados possam ser cotados... ou seja colocar uma trava para que seja obrigatório o pareamento do produto antes de cotar, segue tela de pareamento:
+
+ 
+
+Das telas abaixo:
+ 
+
+
+
+O multiplicador não é necessário, pois sempre será 1.
+Produto é onde inserimos o SKU para cotação.
+Preço unitário é o preço da cotação daquele produto.
+Comentário são informações referentes aquele produto em específico que são enviados ao campo de observação do Bionexo.
+
+Das legendas dos ícones abaixo, segue função de cada:
+ 
+
+   Retorna ou avanã 10 registros na cotação.
+
+   Retorna ou avança para o registro anterior/próximo.
+
+  Avança para o último registro na cotação.
+
+  Habilita o item da cotação para edição.
+
+  Salva as alterações realizadas.
+
+  Descarta as alterações realizadas antes de serem salvas.
+
+  Navegam apenas sobre itens com status de Interessante dentro da cotação.
+
+
+Após o preenchimento e classificação de todos os itens, todos os itens Interessantes preenchidos são levados para uma cotação no layout do sistema antes do envio para o BIONEXO, sendo o campo para tal o icone abaixo:
+
+ 
+
+Após, somos levados para um template de cotação padrão do sistema, contendo os campos necessários para o envio da cotação, sendo primordial:
+
+Data > Validade > Condição de pagamento > Prazo de entrega > Faturamento mínimo > Tipo de frete
+ 
+
+Após verificação, para finalização do processo, ter um comando que envia a cotação para a plataforma e uma mensagem retornando o sucesso ou possível erro.
+
+
+
+
+MELHORIAS QUE HAVIA NO CRM
+
+Funções que haviam sido implementadas no CRM, como melhorias que não existem no SuperControl:
+
+1.	Era possível cancelar/atualizar uma cotação inteira que já havia sido enviada para o BIONEXO, através do próprio sistema, seja ela inteira ou cancelar itens parcialmente.
+
+2.	Dar refresh no vencimento data e hora das cotações, com um botão específico dentro de cada cotação que aciona esse comando na integração.
+
+3.	Layout de cotação unificado, com uma única tela exclusiva de cotações do BIONEXO, como: Campo de observação do fornecedor, orientações do comprador e outros... tendo no mesmo ambiente a tela de cotação, classificação e botões de envio/cancelamento da cotação.
+
+

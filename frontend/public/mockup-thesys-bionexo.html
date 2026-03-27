@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Spec — Portal Thesys-Bionexo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'IBM Plex Sans', -apple-system, sans-serif; background: #f7f8fa; color: #1a2d3e; line-height: 1.6; }
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+    h1 { font-size: 24px; color: #1e3a5f; margin-bottom: 8px; }
+    h2 { font-size: 18px; color: #1e3a5f; margin: 32px 0 12px; border-bottom: 2px solid #1e3a5f; padding-bottom: 4px; }
+    h3 { font-size: 14px; margin: 16px 0 8px; }
+    p, li { font-size: 14px; }
+    .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .card { background: white; border: 1px solid #dfe4eb; border-radius: 8px; padding: 20px; margin: 12px 0; }
+    .endpoint { border-left: 4px solid #1e3a5f; }
+    .method { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; font-family: monospace; margin-right: 8px; }
+    .get { background: #dbeafe; color: #1e40af; }
+    .post { background: #dcfce7; color: #166534; }
+    .path { font-family: monospace; font-size: 14px; font-weight: 600; }
+    pre { background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
+    code { font-family: 'IBM Plex Mono', monospace; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    th, td { border: 1px solid #dfe4eb; padding: 6px 10px; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; }
+    .status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .status-ok { background: #22c55e; }
+    .status-pending { background: #f59e0b; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+    .checklist { list-style: none; }
+    .checklist li { padding: 4px 0; }
+    .checklist li::before { content: '☐ '; }
+    a { color: #1e3a5f; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Portal Thesys-Bionexo — Especificação da API</h1>
+    <p class="subtitle">Documento de referência para integração. Empresa: PROMEHO</p>
+
+    <h2>Status do Sistema</h2>
+    <div class="card">
+      <table>
+        <tr><th>Componente</th><th>Porta</th><th>Status</th></tr>
+        <tr><td>Frontend (React)</td><td>7000</td><td><span class="status status-ok"></span>Rodando</td></tr>
+        <tr><td>Backend (NestJS)</td><td>7001</td><td><span class="status status-pending"></span>Configurar</td></tr>
+        <tr><td>PostgreSQL</td><td>7432</td><td><span class="status status-pending"></span>Configurar</td></tr>
+        <tr><td>Redis</td><td>7379</td><td><span class="status status-pending"></span>Configurar</td></tr>
+      </table>
+    </div>
+
+    <h2>API do Thesys (para o time Thanner/Gabriel)</h2>
+    <p>O Thesys precisa expor <strong>4 endpoints REST</strong> para o portal funcionar:</p>
+
+    <div class="card endpoint">
+      <span class="method get">GET</span>
+      <span class="path">/api/bionexo/itens</span>
+      <span class="badge badge-info">Produtos Ativos</span>
+      <p style="margin-top:8px">Lista produtos ativos para pareamento de SKU.</p>
+      <h3>Query Params</h3>
+      <table>
+        <tr><th>Param</th><th>Tipo</th><th>Obrigatório</th><th>Descrição</th></tr>
+        <tr><td>search</td><td>string</td><td>Não</td><td>Filtrar por SKU ou descrição</td></tr>
+      </table>
+      <h3>Response</h3>
+      <pre><code>[
+  { "id": 1, "sku": "9928", "descricao": "SERINGA 10ML LUER LOCK", "unidade": "CX" },
+  { "id": 2, "sku": "5512", "descricao": "GAZE ESTERIL 13F PCT C/10", "unidade": "PCT" }
+]</code></pre>
+      <h3>SQL</h3>
+      <pre><code>SELECT Id_Item AS id, Codigo AS sku, descricao, u.codigo AS unidade
+FROM Itens i LEFT JOIN Unidades u ON u.id_unidade = i.id_unidade
+WHERE i.ativo = 'S' AND i.excl_data IS NULL
+AND (Codigo LIKE '%search%' OR descricao LIKE '%search%')</code></pre>
+    </div>
+
+    <div class="card endpoint">
+      <span class="method get">GET</span>
+      <span class="path">/api/bionexo/precos/:idTabela</span>
+      <span class="badge badge-info">Tabela de Preços</span>
+      <p style="margin-top:8px">Retorna preços de uma tabela específica.</p>
+      <h3>Response</h3>
+      <pre><code>[
+  { "sku": "9928", "descricao": "SERINGA 10ML", "preco": 12.50 },
+  { "sku": "5512", "descricao": "GAZE ESTERIL", "preco": 8.90 }
+]</code></pre>
+    </div>
+
+    <div class="card endpoint">
+      <span class="method get">GET</span>
+      <span class="path">/api/bionexo/hospitais</span>
+      <span class="badge badge-info">Hospitais</span>
+      <p style="margin-top:8px">Lista hospitais cadastrados (CliFor com hospital='S').</p>
+      <h3>Response</h3>
+      <pre><code>[
+  { "id": 1, "razao_social": "Hospital Albert Einstein", "nome_fantasia": "Einstein", "cnpj": "60.765.823/0001-30" }
+]</code></pre>
+    </div>
+
+    <div class="card endpoint">
+      <span class="method post">POST</span>
+      <span class="path">/api/bionexo/cotacao</span>
+      <span class="badge badge-warn">Criar Cotação</span>
+      <p style="margin-top:8px">Cria cotação no Thesys após envio ao Bionexo.</p>
+      <h3>Request Body</h3>
+      <pre><code>{
+  "cod_clifor": 123,
+  "id_pagamento_condicoes": 1,
+  "prazo_entrega": 5,
+  "fat_minimo": 500.00,
+  "itens": [
+    { "id_item": 9928, "quantidade": 500, "preco_unitario": 12.50, "observacao": "Entrega em 5 dias" }
+  ]
+}</code></pre>
+      <h3>Response</h3>
+      <pre><code>{ "id_venda_cotacao": 456, "numero": 10293 }</code></pre>
+    </div>
+
+    <h2>API da Bionexo (EDI WebService SOAP)</h2>
+    <div class="card">
+      <table>
+        <tr><th>Operação</th><th>Código</th><th>Direção</th><th>Descrição</th></tr>
+        <tr><td>Download Cotações</td><td>WGG</td><td>← Bionexo</td><td>Receber novas cotações</td></tr>
+        <tr><td>Responder Cotação</td><td>WHS</td><td>→ Bionexo</td><td>Enviar preços/produtos</td></tr>
+        <tr><td>Alterar/Cancelar</td><td>WHU</td><td>→ Bionexo</td><td>Modificar ou cancelar resposta</td></tr>
+        <tr><td>Prorrogações</td><td>WGA</td><td>← Bionexo</td><td>Prazos alterados</td></tr>
+        <tr><td>Pedidos Confirmados</td><td>WJG</td><td>← Bionexo</td><td>Download de pedidos gerados</td></tr>
+      </table>
+      <h3>Endpoints</h3>
+      <table>
+        <tr><th>Ambiente</th><th>URL</th></tr>
+        <tr><td>Sandbox</td><td><code>http://sandbox.bionexo.com.br/ws2/BionexoBean</code></td></tr>
+        <tr><td>Produção</td><td><code>https://ws.bionexo.com.br/BionexoBean</code></td></tr>
+      </table>
+      <p style="margin-top:8px"><strong>Autenticação:</strong> TOKEN + CNPJ por fornecedor</p>
+    </div>
+
+    <h2>Checklist de Configuração</h2>
+    <div class="card">
+      <ul class="checklist">
+        <li>Subir Docker Compose (docker compose up -d)</li>
+        <li>Login com admin@promeho.com.br / Admin123!</li>
+        <li>Receber URL + Token da API Thesys (Thanner/Gabriel)</li>
+        <li>Configurar API Thesys na tela /config</li>
+        <li>Testar conexão Thesys</li>
+        <li>Solicitar token Bionexo WebService</li>
+        <li>Configurar Bionexo na tela /config</li>
+        <li>Testar conexão Bionexo (sandbox)</li>
+        <li>Cadastrar palavras-chave iniciais</li>
+        <li>Fazer o primeiro pareamento (De-Para)</li>
+        <li>Ativar bot automático</li>
+        <li>Testar fluxo completo no sandbox</li>
+        <li>Trocar para ambiente Produção</li>
+      </ul>
+    </div>
+
+    <h2>Documentação Completa</h2>
+    <div class="card">
+      <table>
+        <tr><th>Documento</th><th>Conteúdo</th></tr>
+        <tr><td>docs/API_THESYS_SPEC.md</td><td>Spec completa da API para o Thanner</td></tr>
+        <tr><td>docs/ARQUITETURA.md</td><td>Arquitetura do sistema e diagramas</td></tr>
+        <tr><td>docs/CLASSIFICACAO_E_PAREAMENTO.md</td><td>Fluxo de classificação e pareamento</td></tr>
+        <tr><td>docs/COMO_CONFIGURAR.md</td><td>Guia passo a passo de configuração</td></tr>
+      </table>
+    </div>
+
+    <p style="margin-top:32px;color:#6b7280;font-size:12px">
+      Portal Thesys-Bionexo — PROMEHO &copy; 2026 |
+      <a href="/">Acessar Portal</a> |
+      <a href="/login">Login</a>
+    </p>
+  </div>
+</body>
+</html>

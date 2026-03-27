@@ -1,0 +1,344 @@
+Query
+
+/* ================================================================================
+1. CADASTRO DE CLIENTES, FORNECEDORES E PARCEIROS (CliFor)
+================================================================================
+*/
+
+CREATE TABLE CliFor (
+    -- Chave Primária
+    cod_clifor                      INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    
+    -- Identificação Básica
+    razao                           VARCHAR(150) NULL,
+    fantasia                        VARCHAR(100) NULL,
+    cnpj                            VARCHAR(20)  NULL,
+    pessoa                          CHAR(1)      NULL, -- F=Fisica, J=Juridica
+    ativo                           CHAR(1)      NULL, -- S/N
+    
+    -- Classificação e Grupos
+    cod_cligrupo                    INT NULL,
+    id_cli_seg                      INT NULL,
+    id_pais                         INT NULL,
+    cod_atividade                   INT NULL,
+    dt_abertura                     DATE NULL,
+    
+    -- Flags de Relacionamento (Perfil da Entidade)
+    cliente                         CHAR(1) NULL,
+    fornec                          CHAR(1) NULL,
+    prospect                        CHAR(1) NULL,
+    transportadora                  CHAR(1) NULL,
+    vendedor                        CHAR(1) NULL,
+    prestador_interno               CHAR(1) NULL,
+    armadores                       CHAR(1) NULL,
+    recinto_alfandegado             CHAR(1) NULL,
+    despachantes                    CHAR(1) NULL,
+    industrializacao_por_encomenda  CHAR(1) NULL,
+    consumidor_final                CHAR(1) NULL,
+    agente_carga                    CHAR(1) NULL,
+    armazem_terceiro                CHAR(1) NULL,
+    hospital                        CHAR(1) NULL,
+    
+    -- Documentos e Datas Pessoais
+    ie                              VARCHAR(30) NULL,
+    insmunicipal                    VARCHAR(30) NULL,
+    rg                              VARCHAR(20) NULL,
+    cpf                             VARCHAR(14) NULL,
+    dt_nascto                       DATE        NULL,
+    
+    -- Endereço
+    cep                             VARCHAR(10)  NULL,
+    codiuf                          INT          NULL,
+    codicidade                      INT          NULL,
+    bairro                          VARCHAR(80)  NULL,
+    cod_tipologradouro              VARCHAR(10)  NULL,
+    endereco                        VARCHAR(150) NULL,
+    
+    -- Contatos Gerais
+    web                             VARCHAR(100) NULL,
+    email                           VARCHAR(100) NULL,
+    telefone1                       VARCHAR(20)  NULL,
+    telefone2                       VARCHAR(20)  NULL,
+    celular                         VARCHAR(20)  NULL,
+    fax                             VARCHAR(20)  NULL,
+    cxpostal                        VARCHAR(20)  NULL,
+    
+    -- Dados RFB (Receita Federal)
+    RFBSituacao                     VARCHAR(50)   NULL,
+    RFBTipoMatrizFilial             VARCHAR(30)   NULL,
+    RFBPorteEmpresa                 VARCHAR(30)   NULL,
+    RBFDataSituacaoCadastral        DATE          NULL,
+    RFBMotivoSituacaoCadastral      VARCHAR(100)  NULL,
+    RFBSituacaoEspecial             VARCHAR(100)  NULL,
+    RFBDataSituacaoEspecial         DATE          NULL,
+    RFBNaturezaJuridica             VARCHAR(100)  NULL,
+    RFBEnteFederativoResponsavel    VARCHAR(100)  NULL,
+    RFBCNAEPrincipal                VARCHAR(20)   NULL,
+    RFBCNAESecundarios              NVARCHAR(MAX) NULL,
+    
+    -- Definições para Pedidos e Crédito
+    ID_REPRVEND                     INT           NULL,
+    id_transp_padrao                INT           NULL,
+    id_tipo_frete                   INT           NULL,
+    ID_CONDICAO_PAGAMENTO           INT           NULL,
+    id_tabela_padrao_forma_pagamento INT          NULL,
+    id_portador_cr                  INT           NULL,
+    id_portador_cp                  INT           NULL,
+    vlr_limite_credito              DECIMAL(16,2) NULL,
+    validade_limite_credito         DATE          NULL,
+    data_analise                    DATE          NULL,
+    dias_validade_consulta_credito  INT           NULL,
+    dias_bloq_cliente_atraso        INT           NULL,
+    restricao_venda                 CHAR(1)       NULL,
+    
+    -- Dados Fiscais / Regulatório
+    optante_sn                      CHAR(1)       NULL,
+    contribuinte                    CHAR(1)       NULL,
+    ie_nao_contribuinte             CHAR(1)       NULL,
+    retencao_iss                    CHAR(1)       NULL,
+    aliquota_iss                    DECIMAL(10,4) NULL,
+    suframa                         VARCHAR(20)   NULL,
+    inscricao_produtorrural         VARCHAR(30)   NULL,
+    check_licencas_para_vendas      CHAR(1)       NULL,
+    validade_licenca_pf             DATE          NULL,
+    validade_vistoria_pc            DATE          NULL,
+    validade_licenca_pc             DATE          NULL,
+    
+    -- Bloco de Auditoria
+    incl_user       VARCHAR(100) NULL,
+    incl_data       DATETIME     NULL,
+    incl_device     VARCHAR(100) NULL,
+    modi_user       VARCHAR(100) NULL,
+    modi_data       DATETIME     NULL,
+    modi_device     VARCHAR(100) NULL,
+    excl_user       VARCHAR(100) NULL,
+    excl_data       DATETIME     NULL,
+    excl_device     VARCHAR(100) NULL
+);
+GO
+
+-- Relacionamentos CliFor
+ALTER TABLE CliFor ADD CONSTRAINT FK_CliFor_Representante FOREIGN KEY (ID_REPRVEND) REFERENCES CliFor (cod_clifor);
+ALTER TABLE CliFor ADD CONSTRAINT FK_CliFor_TranspPadrao FOREIGN KEY (id_transp_padrao) REFERENCES CliFor (cod_clifor);
+ALTER TABLE CliFor ADD CONSTRAINT FK_CliFor_FormaPagto    FOREIGN KEY (id_tabela_padrao_forma_pagamento) REFERENCES Tabela_Padrao (id_tabela_padrao);
+GO
+
+
+/* ================================================================================
+2. CONTATOS DETALHADOS (CliFor_Contatos)
+================================================================================
+*/
+
+CREATE TABLE CliFor_Contatos (
+    id_clifor_contatos      INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    cod_clifor              INT NOT NULL,
+    nome                    VARCHAR(100) NULL,
+    area                    VARCHAR(80)  NULL,
+    cargo                   VARCHAR(80)  NULL,
+    telefone1               VARCHAR(20)  NULL,
+    telefone2               VARCHAR(20)  NULL,
+    email                   VARCHAR(100) NULL,
+    cpf                     VARCHAR(14)  NULL,
+    dt_nascto               DATE         NULL,
+    obs                     VARCHAR(500) NULL,
+    sequencia               INT          NULL,
+    ativo                   CHAR(1)      NULL,
+    motivo_bloqueio         VARCHAR(200) NULL,
+    
+    -- Emails para finalidades específicas
+    email_pedcom            VARCHAR(100) NULL,
+    email_pedven            VARCHAR(100) NULL,
+    email_emisnf            VARCHAR(100) NULL,
+    email_boleto            VARCHAR(100) NULL,
+    email_marketing         VARCHAR(100) NULL,
+    email_chamado           VARCHAR(100) NULL,
+    email_cte               VARCHAR(100) NULL,
+    email_senha             VARCHAR(100) NULL,
+    
+    -- Dados de Integração/Controle
+    tipo_contato_contrato   VARCHAR(50)  NULL,
+    codigo_controleterceiro VARCHAR(50)  NULL,
+    cod_usuario_mbm         VARCHAR(50)  NULL,
+    cripto                  VARCHAR(200) NULL,
+    dt_change               DATETIME     NULL,
+    dt_cadastro             DATETIME     NULL,
+    
+    -- Auditoria
+    incl_user VARCHAR(100) NULL, incl_data DATETIME NULL, incl_device VARCHAR(100) NULL,
+    modi_user VARCHAR(100) NULL, modi_data DATETIME NULL, modi_device VARCHAR(100) NULL,
+    excl_user VARCHAR(100) NULL, excl_data DATETIME NULL, excl_device VARCHAR(100) NULL
+);
+GO
+
+ALTER TABLE CliFor_Contatos ADD CONSTRAINT FK_CliForContatos_CliFor FOREIGN KEY (cod_clifor) REFERENCES CliFor (cod_clifor);
+GO
+
+
+/* ================================================================================
+3. TABELAS DE PREÇOS (Compras_Precos)
+================================================================================
+*/
+
+CREATE TABLE Compras_Precos (
+    id_compra_preco         INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    nome_tabela_compras     VARCHAR(200) NULL,
+    dt_inicio               DATE         NULL,
+    id_clifor               INT          NULL,
+    
+    -- Auditoria
+    incl_user VARCHAR(100) NULL, incl_data DATETIME NULL, incl_device VARCHAR(100) NULL,
+    modi_user VARCHAR(100) NULL, modi_data DATETIME NULL, modi_device VARCHAR(100) NULL,
+    excl_user VARCHAR(100) NULL, excl_data DATETIME NULL, excl_device VARCHAR(100) NULL
+);
+GO
+
+ALTER TABLE Compras_Precos ADD CONSTRAINT FK_ComprasPrecos_CliFor FOREIGN KEY (id_clifor) REFERENCES CliFor (cod_clifor);
+GO
+
+CREATE TABLE Compras_Precos_Itens (
+    id_compra_preco_item    INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    id_compra_preco         INT NOT NULL,
+    id_item                 INT NULL,
+    preco                   NUMERIC(16,2) NULL,
+    
+    -- Auditoria
+    incl_user VARCHAR(100) NULL, incl_data DATETIME NULL, incl_device VARCHAR(100) NULL,
+    modi_user VARCHAR(100) NULL, modi_data DATETIME NULL, modi_device VARCHAR(100) NULL,
+    excl_user VARCHAR(100) NULL, excl_data DATETIME NULL, excl_device VARCHAR(100) NULL
+);
+GO
+
+ALTER TABLE Compras_Precos_Itens ADD CONSTRAINT FK_ComprasPrecosItens_Preco FOREIGN KEY (id_compra_preco) REFERENCES Compras_Precos (id_compra_preco);
+ALTER TABLE Compras_Precos_Itens ADD CONSTRAINT FK_ComprasPrecosItens_Item  FOREIGN KEY (id_item) REFERENCES itens (Id_Item);
+GO
+
+
+/* ================================================================================
+4. AGENDAMENTOS CIRÚRGICOS (agendamentos_cirurgias)
+================================================================================
+*/
+
+CREATE TABLE agendamentos_cirurgias (
+    id_agenda_cirurgia      INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    data_agendamento        DATE          NULL,
+    hora                    VARCHAR(10)   NULL,
+    id_status               INT           NULL,
+    motivo                  VARCHAR(200)  NULL,
+    paciente                VARCHAR(150)  NULL,
+    id_local                INT           NULL,
+    id_procedimento         INT           NULL,
+    id_medico               INT           NULL,
+    id_convenio             INT           NULL,
+    id_representante        INT           NULL,
+    instrumentador          VARCHAR(150)  NULL,
+    obs                     NVARCHAR(MAX) NULL,
+    
+    -- Auditoria
+    incl_user VARCHAR(100) NULL, incl_data DATETIME NULL, incl_device VARCHAR(100) NULL,
+    modi_user VARCHAR(100) NULL, modi_data DATETIME NULL, modi_device VARCHAR(100) NULL,
+    excl_user VARCHAR(100) NULL, excl_data DATETIME NULL, excl_device VARCHAR(100) NULL
+);
+GO
+
+-- Relacionamentos Cirurgia
+ALTER TABLE agendamentos_cirurgias ADD CONSTRAINT FK_AgendCirurg_Status       FOREIGN KEY (id_status)       REFERENCES Status_Docs (StatusID);
+ALTER TABLE agendamentos_cirurgias ADD CONSTRAINT FK_AgendCirurg_Local        FOREIGN KEY (id_local)        REFERENCES CliFor (cod_clifor);
+ALTER TABLE agendamentos_cirurgias ADD CONSTRAINT FK_AgendCirurg_Procedimento FOREIGN KEY (id_procedimento) REFERENCES agendamentos_procedimentos (id_agenda_proc);
+ALTER TABLE agendamentos_cirurgias ADD CONSTRAINT FK_AgendCirurg_Medico       FOREIGN KEY (id_medico)       REFERENCES agendamentos_medicos (id_agenda_medico);
+ALTER TABLE agendamentos_cirurgias ADD CONSTRAINT FK_AgendCirurg_Convenio     FOREIGN KEY (id_convenio)     REFERENCES agendamentos_convenios (id_agenda_convenio);
+ALTER TABLE agendamentos_cirurgias ADD CONSTRAINT FK_AgendCirurg_Representante FOREIGN KEY (id_representante) REFERENCES CliFor (cod_clifor);
+GO
+
+
+/* ================================================================================
+5. VENDAS E COTAÇÕES (Vendas_Cotacoes)
+================================================================================
+*/
+
+CREATE TABLE Vendas_Cotacoes (
+    id_venda_cotacao        INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    numero                  INT NOT NULL,
+    id_reprvend             INT NULL,
+    cod_clifor              INT NULL,
+    id_pagamento_condicoes  INT NULL,
+    dt_emissao              DATE NULL,
+    id_status               INT NULL,
+    id_tipo                 INT NULL,
+    id_plataforma           INT NULL,
+    prazo_entrega           INT NULL,
+    fat_minimo              DECIMAL(16,2) NULL,
+    desc_especial           DECIMAL(16,2) NULL,
+    id_agenda_cirurgia      INT NULL,
+    id_clifor_contatos_tel  INT NULL,
+    id_clifor_contatos_email INT NULL,
+    setor                   VARCHAR(20) NULL,
+    id_compra_preco         INT NULL,
+    id_venda_kit            INT NULL,
+    
+    -- Auditoria
+    incl_user VARCHAR(100) NULL, incl_data DATETIME NULL, incl_device VARCHAR(100) NULL,
+    modi_user VARCHAR(100) NULL, modi_data DATETIME NULL, modi_device VARCHAR(100) NULL,
+    excl_user VARCHAR(100) NULL, excl_data DATETIME NULL, excl_device VARCHAR(100) NULL
+);
+GO
+
+-- Relacionamentos Venda/Cotação
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_RepresentanteCliFor FOREIGN KEY (id_reprvend)    REFERENCES CliFor (cod_clifor);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_ClienteCliFor       FOREIGN KEY (cod_clifor)     REFERENCES CliFor (cod_clifor);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_PagCondicoes        FOREIGN KEY (id_pagamento_condicoes) REFERENCES Pagamentos_Condicoes (id_pagamento_condicao);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_StatusDocs         FOREIGN KEY (id_status)      REFERENCES Status_Docs (StatusID);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_TipoCotacao        FOREIGN KEY (id_tipo)        REFERENCES Tabela_Padrao (id_tabela_padrao);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_AgendaCirurgia      FOREIGN KEY (id_agenda_cirurgia) REFERENCES agendamentos_cirurgias (id_agenda_cirurgia);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_ContatosTel         FOREIGN KEY (id_clifor_contatos_tel) REFERENCES CliFor_Contatos (id_clifor_contatos);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_ContatosEmail       FOREIGN KEY (id_clifor_contatos_email) REFERENCES CliFor_Contatos (id_clifor_contatos);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_CompraPreco         FOREIGN KEY (id_compra_preco) REFERENCES Compras_Precos (id_compra_preco);
+ALTER TABLE Vendas_Cotacoes ADD CONSTRAINT FK_VendaCot_VendaKit           FOREIGN KEY (id_venda_kit)   REFERENCES Vendas_Kit (id_venda_kit);
+GO
+
+
+CREATE TABLE Vendas_Cotacoes_Itens (
+    id_venda_cotacao_item   INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    id_venda_cotacao        INT NOT NULL,
+    id_item                 INT NULL,
+    quantidade              INT NULL,
+    preco_unitario          NUMERIC(16,2) NULL,
+    desconto                NUMERIC(16,2) NULL,
+    preco_fechado           NUMERIC(16,2) NULL,
+    id_status               INT NULL,
+    total                   NUMERIC(16,2) NULL,
+    observacao              VARCHAR(200) NULL,
+    ordem                   INT NULL,
+    
+    -- Auditoria
+    incl_user VARCHAR(100) NULL, incl_data DATETIME NULL, incl_device VARCHAR(100) NULL,
+    modi_user VARCHAR(100) NULL, modi_data DATETIME NULL, modi_device VARCHAR(100) NULL,
+    excl_user VARCHAR(100) NULL, excl_data DATETIME NULL, excl_device VARCHAR(100) NULL
+);
+GO
+
+-- Relacionamentos Itens da Cotação
+ALTER TABLE Vendas_Cotacoes_Itens ADD CONSTRAINT FK_VendaCotItem_Cotacao FOREIGN KEY (id_venda_cotacao) REFERENCES Vendas_Cotacoes (id_venda_cotacao);
+ALTER TABLE Vendas_Cotacoes_Itens ADD CONSTRAINT FK_VendaCotItem_Item    FOREIGN KEY (id_item)          REFERENCES itens (Id_Item);
+ALTER TABLE Vendas_Cotacoes_Itens ADD CONSTRAINT FK_VendaCotItem_Status  FOREIGN KEY (id_status)        REFERENCES Status_Docs (StatusID);
+GO
+
+
+/* ================================================================================
+6. TABELAS DE APOIO (Lookups)
+================================================================================
+*/
+
+CREATE TABLE Status_Docs (
+    StatusID         INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    StatusDescricao  VARCHAR(100) NULL,
+    StatusGrupo      VARCHAR(60)  NULL
+);
+GO
+
+CREATE TABLE Tabela_Padrao (
+    id_tabela_padrao INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    cod_tabelapadrao VARCHAR(60)  NULL,
+    codigo           VARCHAR(30)  NULL,
+    descricao        VARCHAR(150) NULL
+);
+GO

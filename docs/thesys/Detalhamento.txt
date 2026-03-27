@@ -1,0 +1,7 @@
+Cliente Fornecedor
+Representantes
+Tipo de Cli_For (Cliente, Fornecedor, Prospect, Consumidor Final, Transpordaroa, Vendedor, Prestado Interno, Armador, Recinto/Alfandegado,, Despachantes, Indsturiaçlicao por ecomenda, Agente de Carga e Armazém de terceiro)
+Endereço completo
+Contatos
+Grupo de Cliente
+Segmento do Cliente

@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: bionexo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: bionexo-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bionexo-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT}:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+      NODE_ENV: ${NODE_ENV}
+      BIONEXO_AMBIENTE: ${BIONEXO_AMBIENTE}
+      BIONEXO_URL_SANDBOX: ${BIONEXO_URL_SANDBOX}
+      BIONEXO_URL_PRODUCAO: ${BIONEXO_URL_PRODUCAO}
+      BIONEXO_WSDL_SANDBOX: ${BIONEXO_WSDL_SANDBOX}
+      BIONEXO_WSDL_PRODUCAO: ${BIONEXO_WSDL_PRODUCAO}
+      THESYS_BASE_URL: ${THESYS_BASE_URL}
+      THESYS_APIKEY_ITENS: ${THESYS_APIKEY_ITENS}
+      THESYS_APIKEY_PRECOS: ${THESYS_APIKEY_PRECOS}
+      THESYS_APIKEY_HOSPITAIS: ${THESYS_APIKEY_HOSPITAIS}
+      THESYS_APIKEY_COTACAO: ${THESYS_APIKEY_COTACAO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bionexo-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    environment:
+      VITE_API_URL: http://localhost:${BACKEND_PORT}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres-data:
+  redis-data:

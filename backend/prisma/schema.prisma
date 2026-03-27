@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  nome         String
+  perfil       Perfil   @default(OPERADOR)
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum Perfil {
+  MASTER
+  OPERADOR
+}
+
+model Cotacao {
+  id             String        @id @default(uuid())
+  bionexoId      Int           @unique
+  cnpjHospital   String
+  nomeHospital   String
+  ufHospital     String
+  cidadeHospital String
+  dataVencimento DateTime
+  horaVencimento String
+  formaPagamento String?
+  status         CotacaoStatus @default(RECEBIDO)
+  syncedAt       DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  itens          CotacaoItem[]
+}
+
+enum CotacaoStatus {
+  RECEBIDO
+  PAREADO
+  COTACAO_ENVIADA
+  EM_ANALISE
+  ACEITA
+  PEDIDO_GERADO
+  ADQUIRIDO_OUTRA
+  CANCELADO
+}
+
+model CotacaoItem {
+  id               String        @id @default(uuid())
+  cotacaoId        String
+  cotacao          Cotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  sequencia        Int
+  descricaoBionexo String
+  quantidade       Int
+  unidadeMedida    String
+  marcas           String?
+  formaPagamento   String?
+  categoria        CategoriaItem @default(NAO_ANALISADO)
+  codigoInterno    String?
+  descricaoInterna String?
+  precoUnitario    Float?
+  comentario       String?
+  catComercial     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+enum CategoriaItem {
+  NAO_ANALISADO
+  INTERESSANTE
+  COTADO
+  DESCARTADO
+}
+
+model MapeamentoSku {
+  id                 String   @id @default(uuid())
+  descricaoComprador String
+  skuThesys          String
+  descricaoInterna   String
+  createdAt          DateTime @default(now())
+}
+
+model RegraPalavraChave {
+  id             String      @id @default(uuid())
+  palavraChave   String
+  acaoAutomatica AcaoKeyword
+  matches        Int         @default(0)
+  createdAt      DateTime    @default(now())
+}
+
+enum AcaoKeyword {
+  INTERESSANTE
+  DESCARTAR
+}
+
+model Pedido {
+  id              String   @id @default(uuid())
+  bionexoPedidoId String
+  cotacaoId       String?
+  nomeHospital    String
+  cnpjHospital    String
+  dataPedido      DateTime
+  status          String
+  valorTotal      Float
+  createdAt       DateTime @default(now())
+}
+
+model SyncLog {
+  id          String   @id @default(uuid())
+  operacao    String
+  direcao     String
+  status      String
+  mensagem    String?
+  processadas Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model BionexoConfig {
+  id              String  @id @default(uuid())
+  cnpj            String
+  usuario         String
+  senha           String
+  wsdlUrl         String  @default("https://ws-bionexo-sandbox.bionexo.com/ws2/BionexoBean?wsdl")
+  ambiente        String  @default("SANDBOX")
+  pollingInterval Int     @default(5)
+  botAtivo        Boolean @default(false)
+  ultimoToken     String? @default("0")
+}
+
+model ThesysConfig {
+  id        String  @id @default(uuid())
+  baseUrl   String
+  authToken String?
+  ativo     Boolean @default(true)
+}
