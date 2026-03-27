@@ -1,9 +1,20 @@
-import { Outlet } from "@tanstack/react-router"
+import { Outlet, useNavigate } from "@tanstack/react-router"
+import { useEffect } from "react"
 import { AppSidebar } from "./AppSidebar"
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context"
+import { isAuthenticated } from "@/lib/api"
 
 function AppContent() {
   const { collapsed } = useSidebar()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      navigate({ to: "/login" })
+    }
+  }, [navigate])
+
+  if (!isAuthenticated()) return null
 
   return (
     <main

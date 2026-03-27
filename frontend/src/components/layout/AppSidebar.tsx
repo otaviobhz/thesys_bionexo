@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useSidebar } from "@/lib/sidebar-context"
+import { logout } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import {
   FileText,
@@ -50,7 +51,7 @@ export function AppSidebar() {
             <>
               <div className="flex flex-col flex-1">
                 <span className="text-sm font-semibold text-sidebar-foreground">Thesys Bionexo</span>
-                <span className="text-xs text-sidebar-foreground/60">Integração v1.0</span>
+                <span className="text-xs text-sidebar-foreground/60">v2026.03.26</span>
               </div>
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -127,6 +128,7 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
+                onClick={logout}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm w-full transition-colors text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                   collapsed && "justify-center px-0"
