@@ -54,6 +54,8 @@ export function CotacoesPage() {
   const [modalAprenderOpen, setModalAprenderOpen] = useState(false)
   const [modalAprenderDesc, setModalAprenderDesc] = useState("")
   const [allItems, setAllItems] = useState<CotacaoItemFlat[]>([])
+  const [actionLoading, setActionLoading] = useState("")
+  const [actionMsg, setActionMsg] = useState("")
   const [loadingData, setLoadingData] = useState(true)
 
   async function fetchData() {
@@ -112,10 +114,17 @@ export function CotacoesPage() {
   }
 
   async function handleReceberNovos() {
+    setActionLoading("receber")
+    setActionMsg("")
     try {
-      await api.post('/bionexo/receber')
-    } catch (e) { console.error(e) }
+      const { data } = await api.post('/bionexo/receber')
+      setActionMsg(`✅ ${data.mensagem || 'Integração concluída'}`)
+    } catch (e: any) {
+      setActionMsg(`❌ Erro: ${e.response?.data?.message || e.message}`)
+    }
+    setActionLoading("")
     fetchData()
+    setTimeout(() => setActionMsg(""), 5000)
   }
 
   // Group items by cotacaoId, sort GROUPS, then flatten
@@ -304,14 +313,19 @@ export function CotacoesPage() {
               <option value="JAC">Logmed Jacareí</option>
             </Select>
           </div>
-          <Button variant="success" size="sm" className="text-xs h-7" onClick={handleReceberNovos}>
-            <Download className="h-3.5 w-3.5 mr-1" /> Receber novos
+          <Button variant="success" size="sm" className="text-xs h-7" onClick={handleReceberNovos} disabled={actionLoading === "receber"}>
+            {actionLoading === "receber" ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Recebendo...</> : <><Download className="h-3.5 w-3.5 mr-1" /> Receber novos</>}
           </Button>
           <Button variant="outline" size="sm" className="text-xs h-7">
             <RefreshCw className="h-3.5 w-3.5 mr-1" /> Atualizar
           </Button>
         </div>
       </div>
+      {actionMsg && (
+        <div className={`text-xs px-3 py-1.5 rounded ${actionMsg.startsWith('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'}`}>
+          {actionMsg}
+        </div>
+      )}
 
       {/* ===== FILTROS ===== */}
       <div className="flex flex-wrap items-end gap-3 py-2">
