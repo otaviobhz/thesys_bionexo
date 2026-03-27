@@ -131,7 +131,10 @@ export class BionexoService {
 
       return { id: log.id, operacao: log.operacao, direcao: log.direcao, status: log.status, mensagem: log.mensagem, processadas: log.processadas, createdAt: log.createdAt, cotacoes: Math.max(0, response.status), salvas: savedCount }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Erro desconhecido'
+      let msg = error instanceof Error ? error.message : 'Erro desconhecido'
+      if (msg.includes('Reference') || msg.includes("Cannot use 'in'") || msg.includes('503') || msg.includes('edgesuite')) {
+        msg = 'Bionexo temporariamente indisponível (503). Aguarde 1-2 minutos e tente novamente.'
+      }
       const log = await this.prisma.syncLog.create({
         data: { operacao: 'WGG', direcao: 'IN', status: 'ERRO', mensagem: msg, processadas: 0 },
       })
@@ -164,7 +167,10 @@ export class BionexoService {
         },
       })
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Erro desconhecido'
+      let msg = error instanceof Error ? error.message : 'Erro desconhecido'
+      if (msg.includes('Reference #') || msg.includes("Cannot use 'in' operator")) {
+        msg = 'Bionexo bloqueou (rate limit). Aguarde 1-2 min.'
+      }
       return this.prisma.syncLog.create({
         data: { operacao: 'WGA', direcao: 'IN', status: 'ERRO', mensagem: msg, processadas: 0 },
       })
@@ -191,7 +197,11 @@ export class BionexoService {
       }
       return { success: false, message: `Erro: ${response.data}` }
     } catch (error) {
-      return { success: false, message: error instanceof Error ? error.message : 'Erro de conexão' }
+      const msg = error instanceof Error ? error.message : 'Erro de conexão'
+      if (msg.includes('Reference #') || msg.includes("Cannot use 'in' operator")) {
+        return { success: false, message: 'Bionexo bloqueou (rate limit). Aguarde 1-2 min.' }
+      }
+      return { success: false, message: msg }
     }
   }
 
