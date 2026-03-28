@@ -6,6 +6,13 @@ O versionamento segue o formato: `vYYYY.MM.DD.HH.MM`
 
 ---
 
+## v2026.03.28.20.00
+
+### Alterações
+- Versionamento agora usa fuso horário de São Paulo (America/Sao_Paulo)
+
+---
+
 ## v2026.03.28.22.45
 
 ### Alterações
