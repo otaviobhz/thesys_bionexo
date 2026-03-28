@@ -6,6 +6,15 @@ O versionamento segue o formato: `vYYYY.MM.DD.HH.MM`
 
 ---
 
+## v2026.03.28.22.30
+
+### Alterações
+- Favicon fixo como lightmode (T·B fundo claro) em todas as situações
+- Bot Automático movido para lado direito da Integração Thesys (grid 2 colunas)
+- Modal info (i) circular no padrão logmed (popup com overlay, não colapsável)
+
+---
+
 ## v2026.03.28.22.07
 
 ### Novas funcionalidades

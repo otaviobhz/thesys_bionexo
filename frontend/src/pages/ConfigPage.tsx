@@ -333,75 +333,78 @@ export function ConfigPage() {
         {/* Debug Panel */}
         <DebugPanel result={debugResult} loading={debugLoading} />
 
-        {/* Thesys Config */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Integração Thesys ERP (REST API)</CardTitle>
-            <CardDescription>API do ERP para busca de produtos, preços e hospitais</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form ref={thesysFormRef}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="text-sm font-medium block mb-1.5">URL Base da API</label>
-                  <Input name="baseUrl" placeholder="https://thesys.atrpservices.com.br/thesysbi/thesys_bi_api.dll" defaultValue={thesysConfig?.baseUrl ?? ""} key={`t-url-${thesysConfig?.baseUrl}`} />
+        {/* Thesys + Bot side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Thesys Config */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Integração Thesys ERP (REST API)</CardTitle>
+              <CardDescription>API do ERP para busca de produtos, preços e hospitais</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form ref={thesysFormRef}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">URL Base da API</label>
+                    <Input name="baseUrl" placeholder="https://thesys.atrpservices.com.br/thesysbi/thesys_bi_api.dll" defaultValue={thesysConfig?.baseUrl ?? ""} key={`t-url-${thesysConfig?.baseUrl}`} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">Token de Autenticação (X-API-Key)</label>
+                    <Input name="authToken" type="password" placeholder="API Key principal" defaultValue={thesysConfig?.authToken ?? ""} key={`t-token-${thesysConfig?.authToken}`} />
+                    <p className="text-xs text-muted-foreground mt-1">As chaves por endpoint são configuradas no servidor (.env)</p>
+                  </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="text-sm font-medium block mb-1.5">Token de Autenticação (X-API-Key)</label>
-                  <Input name="authToken" type="password" placeholder="API Key principal" defaultValue={thesysConfig?.authToken ?? ""} key={`t-token-${thesysConfig?.authToken}`} />
-                  <p className="text-xs text-muted-foreground mt-1">As chaves por endpoint são configuradas no servidor (.env)</p>
-                </div>
+              </form>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSalvarThesys} disabled={saving.thesys}>
+                  {saving.thesys ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  Salvar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleTestarThesys} disabled={testing.thesys}>
+                  {testing.thesys ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <TestTube2 className="h-4 w-4 mr-1" />}
+                  Testar Conexão
+                </Button>
               </div>
-            </form>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSalvarThesys} disabled={saving.thesys}>
-                {saving.thesys ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                Salvar
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleTestarThesys} disabled={testing.thesys}>
-                {testing.thesys ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <TestTube2 className="h-4 w-4 mr-1" />}
-                Testar Conexão
-              </Button>
-            </div>
-            {testResult.thesys && (
-              <p className={`text-xs mt-1 ${testResult.thesys.startsWith('✅') ? 'text-green-600 dark:text-green-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                {testResult.thesys}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Bot Config */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Bot Automático</CardTitle>
-            <CardDescription>Download automático de cotações via polling</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 rounded-lg border">
-              <div>
-                <p className="font-medium">Bot de Importação</p>
-                <p className="text-sm text-muted-foreground">
-                  Download automático a cada {bionexoConfig?.pollingInterval ?? 5} minutos
+              {testResult.thesys && (
+                <p className={`text-xs mt-1 ${testResult.thesys.startsWith('✅') ? 'text-green-600 dark:text-green-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  {testResult.thesys}
                 </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bot Config */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Bot Automático</CardTitle>
+              <CardDescription>Download automático de cotações via polling</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div>
+                  <p className="font-medium">Bot de Importação</p>
+                  <p className="text-sm text-muted-foreground">
+                    Download automático a cada {bionexoConfig?.pollingInterval ?? 5} minutos
+                  </p>
+                </div>
+                <Button
+                  variant={bionexoConfig?.botAtivo ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={async () => {
+                    const newVal = !bionexoConfig?.botAtivo
+                    try {
+                      await api.put('/config/bionexo', { botAtivo: newVal })
+                      setBionexoConfig((prev: any) => prev ? { ...prev, botAtivo: newVal } : prev)
+                    } catch {}
+                  }}
+                >
+                  <Power className="h-4 w-4 mr-1" />
+                  {bionexoConfig?.botAtivo ? 'Desativar' : 'Ativar'}
+                </Button>
               </div>
-              <Button
-                variant={bionexoConfig?.botAtivo ? "destructive" : "outline"}
-                size="sm"
-                onClick={async () => {
-                  const newVal = !bionexoConfig?.botAtivo
-                  try {
-                    await api.put('/config/bionexo', { botAtivo: newVal })
-                    setBionexoConfig((prev: any) => prev ? { ...prev, botAtivo: newVal } : prev)
-                  } catch {}
-                }}
-              >
-                <Power className="h-4 w-4 mr-1" />
-                {bionexoConfig?.botAtivo ? 'Desativar' : 'Ativar'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
