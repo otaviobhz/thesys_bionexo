@@ -6,6 +6,15 @@ O versionamento segue o formato: `vYYYY.MM.DD.HH.MM`
 
 ---
 
+## v2026.03.28.22.45
+
+### Alterações
+- Removida tab redundante "Regras de Palavras-Chave" do Mapeamento
+- Mapeamento agora mostra apenas Pareamentos (tela limpa)
+- Palavras-Chave tem sua própria página dedicada
+
+---
+
 ## v2026.03.28.22.30
 
 ### Alterações
