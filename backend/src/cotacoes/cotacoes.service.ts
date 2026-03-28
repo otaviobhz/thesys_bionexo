@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/common'
 import { CategoriaItem, Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { BionexoService } from '../bionexo/bionexo.service'
 
 interface FindAllFilters {
   search?: string
@@ -22,6 +23,7 @@ export interface FlatCotacaoItem {
   cnpjHospital: string
   formaPagamento: string | null
   status: string
+  prioritaria: boolean
   sequencia: number
   descricaoBionexo: string
   quantidade: number
@@ -33,11 +35,16 @@ export interface FlatCotacaoItem {
   precoUnitario: number | null
   comentario: string | null
   catComercial: string | null
+  codigoProduto: string | null
 }
 
 @Injectable()
 export class CotacoesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => BionexoService))
+    private readonly bionexoService: BionexoService,
+  ) {}
 
   async findAllFlat(filters: FindAllFilters): Promise<{
     data: FlatCotacaoItem[]
@@ -108,6 +115,7 @@ export class CotacoesService {
       cnpjHospital: item.cotacao.cnpjHospital,
       formaPagamento: item.cotacao.formaPagamento,
       status: item.cotacao.status,
+      prioritaria: item.cotacao.prioritaria,
       sequencia: item.sequencia,
       descricaoBionexo: item.descricaoBionexo,
       quantidade: item.quantidade,
@@ -119,6 +127,7 @@ export class CotacoesService {
       precoUnitario: item.precoUnitario,
       comentario: item.comentario,
       catComercial: item.catComercial,
+      codigoProduto: item.codigoProduto,
     }))
 
     return {
@@ -181,6 +190,16 @@ export class CotacoesService {
     return { updated: result.count }
   }
 
+  async togglePrioridade(bionexoId: number) {
+    const cotacao = await this.prisma.cotacao.findUnique({ where: { bionexoId } })
+    if (!cotacao) throw new NotFoundException(`Cotação ${bionexoId} não encontrada`)
+    const updated = await this.prisma.cotacao.update({
+      where: { bionexoId },
+      data: { prioritaria: !cotacao.prioritaria },
+    })
+    return { bionexoId, prioritaria: updated.prioritaria }
+  }
+
   async enviarCotacao(cotacaoId: number) {
     const cotacao = await this.prisma.cotacao.findUnique({
       where: { bionexoId: cotacaoId },
@@ -192,16 +211,7 @@ export class CotacoesService {
       )
     }
 
-    await this.prisma.syncLog.create({
-      data: {
-        operacao: 'ENVIAR_COTACAO',
-        direcao: 'SAIDA',
-        status: 'PENDENTE',
-        mensagem: `Envio da cotação ${cotacaoId} agendado`,
-      },
-    })
-
-    return { message: `Cotação ${cotacaoId} marcada para envio` }
+    return this.bionexoService.enviarCotacao(cotacao.id)
   }
 
   async cancelarCotacao(cotacaoId: number) {
@@ -215,15 +225,21 @@ export class CotacoesService {
       )
     }
 
+    await this.prisma.cotacao.update({
+      where: { id: cotacao.id },
+      data: { status: 'CANCELADO' },
+    })
+
     await this.prisma.syncLog.create({
       data: {
-        operacao: 'CANCELAR_COTACAO',
-        direcao: 'SAIDA',
-        status: 'PENDENTE',
-        mensagem: `Cancelamento da cotação ${cotacaoId} agendado`,
+        operacao: 'CANCELAR',
+        direcao: 'OUT',
+        status: 'SUCESSO',
+        mensagem: `Cotação ${cotacaoId} cancelada`,
+        processadas: 1,
       },
     })
 
-    return { message: `Cotação ${cotacaoId} marcada para cancelamento` }
+    return { message: `Cotação ${cotacaoId} cancelada` }
   }
 }

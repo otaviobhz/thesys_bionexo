@@ -23,7 +23,7 @@ function AppContent() {
         marginLeft: collapsed ? 'var(--sidebar-width-icon)' : 'var(--sidebar-width)',
       }}
     >
-      <div className="px-4 py-2">
+      <div className="px-3 py-2 w-full max-w-full overflow-x-hidden">
         <Outlet />
       </div>
     </main>

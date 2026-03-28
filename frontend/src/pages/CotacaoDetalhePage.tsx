@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useParams, Link } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import {
   GraduationCap, ArrowLeftRight, Check, AlertTriangle,
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { ModalAprender } from "@/components/modals/ModalAprender"
 import {
   mockItensFlat,
   type CotacaoItemFlat,
@@ -29,6 +30,8 @@ export function CotacaoDetalhePage() {
 
   const [allItems, setAllItems] = useState<CotacaoItemFlat[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [modalAprenderOpen, setModalAprenderOpen] = useState(false)
+  const [modalAprenderDesc, setModalAprenderDesc] = useState("")
 
   useEffect(() => {
     async function fetchCotacao() {
@@ -152,7 +155,7 @@ export function CotacaoDetalhePage() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Cotação não encontrada</p>
-        <Link to="/cotacoes">
+        <Link to="/">
           <Button variant="outline" className="mt-4">
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
@@ -210,7 +213,8 @@ export function CotacaoDetalhePage() {
   }
 
   function handleSaveItem(itemId: string) {
-    // Would send to API
+    // TODO: send to API - POST /cotacoes/:cotacaoId/itens/:itemId
+    void itemId
     showToast("Item salvo com sucesso.")
   }
 
@@ -238,7 +242,6 @@ export function CotacaoDetalhePage() {
   async function handleSendCotacao() {
     showToast("Enviando cotação...")
     try {
-      const cotacaoUuid = allItems[0]?.id?.split('-').slice(0, -1).join('-') // hack: get cotacao UUID
       // Find cotacao UUID from API
       const { data: cotData } = await api.get(`/cotacoes/${cotacaoIdNum}`)
       const { data: result } = await api.post(`/bionexo/enviar/${cotData.id}`)
@@ -283,8 +286,11 @@ export function CotacaoDetalhePage() {
   }
 
   function handleBatchEnsinar() {
-    // Would open modal
-    setSelectedIds(new Set())
+    const selectedItem = allItems.find(i => selectedIds.has(i.id))
+    if (selectedItem) {
+      setModalAprenderDesc(selectedItem.descricaoBionexo)
+      setModalAprenderOpen(true)
+    }
   }
 
   function handleBatchParear() {
@@ -306,7 +312,7 @@ export function CotacaoDetalhePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/cotacoes">
+          <Link to="/">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -757,6 +763,12 @@ export function CotacaoDetalhePage() {
           </div>
         </CardContent>
       </Card>
+      {/* Modal Aprender */}
+      <ModalAprender
+        open={modalAprenderOpen}
+        onClose={() => { setModalAprenderOpen(false); setSelectedIds(new Set()) }}
+        descricaoBionexo={modalAprenderDesc}
+      />
     </div>
   )
 }

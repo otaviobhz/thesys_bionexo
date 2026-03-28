@@ -16,7 +16,7 @@ function getPedidoStatusColor(status: string): string {
 
 export function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
 
   useEffect(() => {
     api.get('/pedidos')

@@ -10,7 +10,7 @@ import { Search, Plus, Pencil, Lock, Unlock, Info } from "lucide-react"
 
 export function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
 
   function fetchUsuarios() {
     setLoading(true)

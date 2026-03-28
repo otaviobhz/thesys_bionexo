@@ -41,4 +41,14 @@ export class BionexoController {
     }
     return statusResult
   }
+
+  @Post('debug')
+  debug() {
+    return this.bionexoService.debugConexao()
+  }
+
+  @Get('status-itens/:idPdc')
+  verificarStatus(@Param('idPdc') idPdc: string) {
+    return this.bionexoService.verificarStatus(parseInt(idPdc))
+  }
 }

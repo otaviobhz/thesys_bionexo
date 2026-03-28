@@ -38,7 +38,7 @@ services:
     container_name: bionexo-backend
     restart: unless-stopped
     ports:
-      - "${BACKEND_PORT}:3000"
+      - "0.0.0.0:${BACKEND_PORT}:3000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
@@ -69,9 +69,7 @@ services:
     container_name: bionexo-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT}:5173"
-    environment:
-      VITE_API_URL: http://localhost:${BACKEND_PORT}
+      - "0.0.0.0:${FRONTEND_PORT}:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules

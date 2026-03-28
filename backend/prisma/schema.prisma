@@ -23,20 +23,26 @@ enum Perfil {
 }
 
 model Cotacao {
-  id             String        @id @default(uuid())
-  bionexoId      Int           @unique
-  cnpjHospital   String
-  nomeHospital   String
-  ufHospital     String
-  cidadeHospital String
-  dataVencimento DateTime
-  horaVencimento String
-  formaPagamento String?
-  status         CotacaoStatus @default(RECEBIDO)
-  syncedAt       DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  itens          CotacaoItem[]
+  id                  String        @id @default(uuid())
+  bionexoId           Int           @unique
+  tituloPdc           String?
+  cnpjHospital        String
+  nomeHospital        String
+  ufHospital          String
+  cidadeHospital      String
+  dataVencimento      DateTime
+  horaVencimento      String
+  idFormaPagamento    Int?
+  formaPagamento      String?
+  contato             String?
+  observacaoComprador String?       @db.Text
+  termos              String?       @db.Text
+  prioritaria         Boolean       @default(false)
+  status              CotacaoStatus @default(RECEBIDO)
+  syncedAt            DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  itens               CotacaoItem[]
 }
 
 enum CotacaoStatus {
@@ -55,9 +61,13 @@ model CotacaoItem {
   cotacaoId        String
   cotacao          Cotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
   sequencia        Int
+  idArtigo         Int
   descricaoBionexo String
-  quantidade       Int
+  quantidade       Float
   unidadeMedida    String
+  idUnidadeMedida  Int?
+  marcaFavorita    String?
+  codigoProduto    String?
   marcas           String?
   formaPagamento   String?
   categoria        CategoriaItem @default(NAO_ANALISADO)
@@ -65,6 +75,7 @@ model CotacaoItem {
   descricaoInterna String?
   precoUnitario    Float?
   comentario       String?
+  observacaoFornecedor String?
   catComercial     String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -99,15 +110,22 @@ enum AcaoKeyword {
 }
 
 model Pedido {
-  id              String   @id @default(uuid())
-  bionexoPedidoId String
-  cotacaoId       String?
-  nomeHospital    String
-  cnpjHospital    String
-  dataPedido      DateTime
-  status          String
-  valorTotal      Float
-  createdAt       DateTime @default(now())
+  id                String        @id @default(uuid())
+  idPdc             Int
+  idConfirmacao     Int           @unique
+  idArtigo          Int
+  codigoProduto     String?
+  descricaoProduto  String?
+  quantidade        Float
+  unidadeMedida     String?
+  fabricante        String?
+  nomeHospital      String
+  cnpjHospital      String
+  contato           String?
+  formaPagamento    String?
+  enderecoEntrega   String?
+  observacao        String?
+  createdAt         DateTime      @default(now())
 }
 
 model SyncLog {

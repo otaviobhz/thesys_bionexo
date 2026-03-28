@@ -44,8 +44,12 @@ export class BionexoProcessor implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Job ${job.name} concluido com sucesso`)
     })
 
-    // Check if bot is active and schedule
-    await this.scheduleIfActive()
+    // Check if bot is active and schedule (with retry on DB not ready)
+    try {
+      await this.scheduleIfActive()
+    } catch (e: any) {
+      this.logger.warn(`scheduleIfActive falhou no init (DB pode não estar pronto): ${e.message}`)
+    }
   }
 
   async onModuleDestroy() {

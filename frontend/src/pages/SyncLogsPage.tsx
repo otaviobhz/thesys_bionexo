@@ -18,7 +18,7 @@ function getDirecaoColor(dir: string) {
 
 export function SyncLogsPage() {
   const [syncLogs, setSyncLogs] = useState<typeof mockSyncLogs>([])
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
 
   useEffect(() => {
     api.get('/sync-logs')

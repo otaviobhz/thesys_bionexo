@@ -23,6 +23,7 @@ export interface CotacaoItemFlat {
   cnpjHospital: string
   formaPagamento: string
   status: CotacaoStatus
+  prioritaria?: boolean
   sequencia: number
   descricaoBionexo: string
   quantidade: number

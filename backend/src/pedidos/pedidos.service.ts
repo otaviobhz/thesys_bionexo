@@ -7,7 +7,7 @@ export class PedidosService {
 
   async findAll() {
     return this.prisma.pedido.findMany({
-      orderBy: { dataPedido: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

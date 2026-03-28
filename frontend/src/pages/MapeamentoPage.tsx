@@ -13,7 +13,9 @@ import {
   type RegraPalavraChave,
 } from "@/lib/mock-data"
 import { api } from "@/lib/api"
-import { Search, Undo2, Plus, Pencil, Trash2, Star, X } from "lucide-react"
+import { Search, Undo2, Plus, Pencil, Trash2, Star, X, Download, Upload, Info } from "lucide-react"
+import * as XLSX from "xlsx"
+import { ImportInfoModal } from "@/components/modals/ImportInfoModal"
 
 type Tab = "pareamentos" | "regras"
 
@@ -63,7 +65,8 @@ export function MapeamentoPage() {
 function TabPareamentos() {
   const [search, setSearch] = useState("")
   const [pareamentos, setPareamentos] = useState<PareamentoSKU[]>([])
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
+  const [showImportInfo, setShowImportInfo] = useState(false)
 
   function fetchPareamentos() {
     setLoading(true)
@@ -103,15 +106,76 @@ function TabPareamentos() {
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por Descrição do Comprador ou SKU Thesys"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por Descrição do Comprador ou SKU Thesys"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button variant="outline" size="sm" className="text-xs h-8 bg-green-600 hover:bg-green-700 text-white border-green-600" onClick={() => {
+            const data = pareamentos.map(p => ({
+              "Descrição Comprador": p.descricaoComprador,
+              "SKU Thesys": p.skuThesys,
+              "Descrição Interna": p.descricaoInterna,
+            }))
+            const ws = XLSX.utils.json_to_sheet(data)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, "De-Para")
+            XLSX.writeFile(wb, `de_para_${new Date().toISOString().split('T')[0]}.xlsx`)
+          }}>
+            <Download className="h-3.5 w-3.5 mr-1" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => {
+            const input = document.createElement("input")
+            input.type = "file"; input.accept = ".xlsx,.xls,.csv"
+            input.onchange = async (e: any) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              const data = new Uint8Array(await file.arrayBuffer())
+              const wb = XLSX.read(data, { type: "array" })
+              const ws = wb.Sheets[wb.SheetNames[0]]
+              const rows: any[] = XLSX.utils.sheet_to_json(ws)
+              let imported = 0
+              for (const row of rows) {
+                const descricaoComprador = (row["Descrição Comprador"] || row["descricaoComprador"] || "").toString().trim()
+                const skuThesys = (row["SKU Thesys"] || row["skuThesys"] || "").toString().trim()
+                const descricaoInterna = (row["Descrição Interna"] || row["descricaoInterna"] || "").toString().trim()
+                if (descricaoComprador && skuThesys) {
+                  try { await api.post('/mapeamento', { descricaoComprador, skuThesys, descricaoInterna }); imported++ } catch {}
+                }
+              }
+              fetchPareamentos()
+              alert(`✅ ${imported} pareamentos importados!`)
+            }
+            input.click()
+          }}>
+            <Upload className="h-3.5 w-3.5 mr-1" /> Importar
+          </Button>
+          <button
+            onClick={() => setShowImportInfo(true)}
+            className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full"
+            title="Informações sobre o formato do Excel"
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
+
+        {showImportInfo && (
+          <ImportInfoModal
+            title="Formato do Excel — Pareamentos De-Para"
+            columns={[
+              { letter: "A", name: "Descrição Comprador", required: true, description: "Descrição do produto no hospital (Bionexo)" },
+              { letter: "B", name: "SKU Thesys", required: true, description: "Código interno do produto no ERP" },
+              { letter: "C", name: "Descrição Interna", required: false, description: "Nome do produto no ERP" },
+            ]}
+            note="Aceita arquivos .xlsx, .xls ou .csv"
+            onClose={() => setShowImportInfo(false)}
+          />
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -165,7 +229,7 @@ function TabRegras() {
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<"TODAS" | "INTERESSANTE" | "DESCARTAR">("TODAS")
   const [regras, setRegras] = useState<RegraPalavraChave[]>([])
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
 
   function fetchRegras() {
     setLoading(true)
@@ -263,7 +327,10 @@ function TabRegras() {
                   <td className="p-3">{formatDate(r.dataCriacao)}</td>
                   <td className="p-3">
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon-sm">
+                      <Button variant="ghost" size="icon-sm" title="Editar" onClick={() => {
+                        // Redirecionar para pagina de Palavras-Chave com dados preenchidos
+                        window.location.href = '/palavras-chave'
+                      }}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button

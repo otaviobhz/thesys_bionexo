@@ -16,13 +16,18 @@ export class ConfigPortalController {
   updateBionexo(
     @Body() body: {
       cnpj?: string;
-      token?: string;
+      usuario?: string;
+      senha?: string;
+      wsdlUrl?: string;
       ambiente?: string;
       pollingInterval?: number;
       botAtivo?: boolean;
     },
   ) {
-    return this.configPortalService.updateBionexo(body);
+    // Don't send masked password back to DB
+    const data = { ...body };
+    if (data.senha === '***' || data.senha === '') delete data.senha;
+    return this.configPortalService.updateBionexo(data);
   }
 
   @Put('thesys')

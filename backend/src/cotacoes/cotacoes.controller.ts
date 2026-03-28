@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -108,6 +109,11 @@ export class CotacoesController {
       body.ids,
       CategoriaItem.NAO_ANALISADO,
     )
+  }
+
+  @Patch(':cotacaoId/prioridade')
+  async togglePrioridade(@Param('cotacaoId') cotacaoId: string) {
+    return this.cotacoesService.togglePrioridade(parseInt(cotacaoId, 10))
   }
 
   @Post(':cotacaoId/enviar')

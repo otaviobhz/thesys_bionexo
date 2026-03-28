@@ -1,10 +1,10 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://10.147.20.85:7002'
+const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:7002`
 
 export const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000,
+  timeout: 60000,
 })
 
 // Interceptor to add JWT token

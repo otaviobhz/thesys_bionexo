@@ -67,13 +67,15 @@ export function CotacoesPage() {
         marcas: item.marcas || '',
         formaPagamento: item.formaPagamento || '',
         catComercial: item.catComercial || '',
+        prioritaria: item.prioritaria || false,
         qtdAproximada: Math.floor(Math.random() * 500) + 10,
         qtdEmbalagem: 1,
       }))
       setAllItems(items)
     } catch (err) {
       console.error('Failed to fetch cotacoes:', err)
-      setAllItems(mockItensFlat)
+      setAllItems([])
+      setActionMsg('❌ Erro ao carregar cotações. Verifique a conexão com o servidor.')
     } finally {
       setLoadingData(false)
     }
@@ -111,6 +113,17 @@ export function CotacoesPage() {
     } catch (e) { console.error(e) }
     setSelectedIds(new Set())
     fetchData()
+  }
+
+  async function handleTogglePrioridade(cotacaoId: number) {
+    try {
+      await api.patch(`/cotacoes/${cotacaoId}/prioridade`)
+      fetchData()
+    } catch (e) { console.error(e) }
+  }
+
+  function handleOpenCotacao(cotacaoId: number) {
+    navigate({ to: "/cotacoes/$cotacaoId", params: { cotacaoId: String(cotacaoId) } })
   }
 
   async function handleReceberNovos() {
@@ -433,11 +446,20 @@ export function CotacoesPage() {
               <th className="p-1.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("descricaoBionexo", e)}>
                 <span className="flex items-center gap-0.5">Descrição <SortIndicator sortKey="descricaoBionexo" /></span>
               </th>
+              <th className="p-1.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("catComercial", e)}>
+                <span className="flex items-center gap-0.5">Cód. Comercial <SortIndicator sortKey="catComercial" /></span>
+              </th>
+              <th className="p-1.5 text-center font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("codigoProduto", e)}>
+                <span className="flex items-center justify-center gap-0.5">Cód. Prod. Hosp. <SortIndicator sortKey="codigoProduto" /></span>
+              </th>
               <th className="p-1.5 text-center font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("quantidade", e)}>
                 <span className="flex items-center justify-center gap-0.5">Qtde <SortIndicator sortKey="quantidade" /></span>
               </th>
               <th className="p-1.5 text-center font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("unidadeMedida", e)}>
                 <span className="flex items-center justify-center gap-0.5">Und medida <SortIndicator sortKey="unidadeMedida" /></span>
+              </th>
+              <th className="p-1.5 text-center font-semibold whitespace-nowrap">
+                <span>Qtd Emb.</span>
               </th>
               <th className="p-1.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("marcas", e)}>
                 <span className="flex items-center gap-0.5">Marca <SortIndicator sortKey="marcas" /></span>
@@ -445,11 +467,8 @@ export function CotacoesPage() {
               <th className="p-1.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("formaPagamento", e)}>
                 <span className="flex items-center gap-0.5">F. Pagto <SortIndicator sortKey="formaPagamento" /></span>
               </th>
-              <th className="p-1.5 text-center font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("codigoInterno", e)}>
-                <span className="flex items-center justify-center gap-0.5">Cód. Interno <SortIndicator sortKey="codigoInterno" /></span>
-              </th>
-              <th className="p-1.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("descricaoInterna", e)}>
-                <span className="flex items-center gap-0.5">Desc. Interna <SortIndicator sortKey="descricaoInterna" /></span>
+              <th className="p-1.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("codigoInterno", e)}>
+                <span className="flex items-center gap-0.5">Produto Vinculado <SortIndicator sortKey="codigoInterno" /></span>
               </th>
               <th className="p-1.5 text-center font-semibold cursor-pointer select-none whitespace-nowrap" onClick={(e) => handleSort("precoUnitario", e)}>
                 <span className="flex items-center justify-center gap-0.5">Preço Unit. <SortIndicator sortKey="precoUnitario" /></span>
@@ -459,7 +478,6 @@ export function CotacoesPage() {
           <tbody>
             {paginatedItems.map((item) => {
               const isGroupFirst = firstRowOfGroup.has(item.id)
-              const produtoVinculado = item.codigoInterno ? `${item.codigoInterno} - ${item.descricaoInterna || ""}` : ""
               return (
                 <tr
                   key={item.id}
@@ -477,8 +495,8 @@ export function CotacoesPage() {
                   <td className="p-1.5" onClick={(e) => e.stopPropagation()}>
                     {isGroupFirst && (
                       <div className="flex items-center gap-1">
-                        <button className="text-amber-500 hover:text-amber-600" title="Prioridade"><Crown className="h-3.5 w-3.5" /></button>
-                        <button className="text-green-600 hover:text-green-700" title="Cotação"><ClipboardList className="h-3.5 w-3.5" /></button>
+                        <button className={cn("hover:scale-110 transition-transform", (item as any).prioritaria ? "text-amber-500" : "text-gray-300 hover:text-amber-400")} title="Prioridade" onClick={(e) => { e.stopPropagation(); handleTogglePrioridade(item.cotacaoId) }}><Crown className="h-3.5 w-3.5" /></button>
+                        <button className="text-green-600 hover:text-green-700 hover:scale-110 transition-transform" title="Abrir cotação" onClick={(e) => { e.stopPropagation(); handleOpenCotacao(item.cotacaoId) }}><ClipboardList className="h-3.5 w-3.5" /></button>
                       </div>
                     )}
                   </td>
@@ -490,18 +508,20 @@ export function CotacoesPage() {
                   <td className="p-1.5 whitespace-nowrap">{item.cidade}</td>
                   <td className="p-1.5 text-center">{item.sequencia}</td>
                   <td className="p-1.5 max-w-[220px] truncate" title={item.descricaoBionexo}>{item.descricaoBionexo}</td>
+                  <td className="p-1.5 whitespace-nowrap text-xs">{item.catComercial || "—"}</td>
+                  <td className="p-1.5 text-center font-mono text-xs">{(item as any).codigoProduto || "—"}</td>
                   <td className="p-1.5 text-center">{item.quantidade}</td>
                   <td className="p-1.5 text-center">{item.unidadeMedida}</td>
+                  <td className="p-1.5 text-center text-muted-foreground">—</td>
                   <td className="p-1.5 max-w-[100px] truncate" title={item.marcas}>{item.marcas || "—"}</td>
                   <td className="p-1.5 whitespace-nowrap">{item.formaPagamento}</td>
-                  <td className="p-1.5 text-center font-mono">{item.codigoInterno || "—"}</td>
-                  <td className="p-1.5 max-w-[140px] truncate" title={item.descricaoInterna || ""}>{item.descricaoInterna || "—"}</td>
+                  <td className="p-1.5 max-w-[180px] truncate font-mono text-xs" title={item.codigoInterno ? `${item.codigoInterno} — ${item.descricaoInterna || ''}` : ''}>{item.codigoInterno ? `${item.codigoInterno} — ${item.descricaoInterna || ''}` : "—"}</td>
                   <td className="p-1.5 text-center font-mono">{item.precoUnitario ? `R$ ${item.precoUnitario.toFixed(2)}` : ""}</td>
                 </tr>
               )
             })}
             {paginatedItems.length === 0 && (
-              <tr><td colSpan={15} className="p-6 text-center text-muted-foreground">Nenhum item encontrado.</td></tr>
+              <tr><td colSpan={20} className="p-6 text-center text-muted-foreground">Nenhum item encontrado.</td></tr>
             )}
           </tbody>
         </table>

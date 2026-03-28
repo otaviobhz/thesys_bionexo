@@ -6,6 +6,6 @@ import { BionexoProcessor } from './bionexo.processor';
 @Module({
   controllers: [BionexoController],
   providers: [BionexoService, BionexoProcessor],
-  exports: [BionexoProcessor],
+  exports: [BionexoService, BionexoProcessor],
 })
 export class BionexoModule {}

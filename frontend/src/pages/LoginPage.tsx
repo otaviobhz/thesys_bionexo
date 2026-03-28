@@ -21,7 +21,13 @@ export function LoginPage() {
       await login(email, password)
       navigate({ to: "/" })
     } catch (err: any) {
-      setError(err.response?.data?.message || "E-mail ou senha incorretos")
+      if (err.response?.data?.message) {
+        setError(err.response.data.message)
+      } else if (err.code === 'ERR_NETWORK') {
+        setError("Erro de conexão com o servidor. Verifique a rede.")
+      } else {
+        setError("E-mail ou senha incorretos")
+      }
     } finally {
       setLoading(false)
     }

@@ -28,7 +28,7 @@ export function AuthLayout() {
         </button>
 
         {/* Mobile logo */}
-        <img src="/favicon.png" alt="Thesys Bionexo" className="lg:hidden w-14 h-14 rounded-xl mb-8" />
+        <img src={theme === "dark" ? "/favicon-dark.png" : "/favicon-light.png"} alt="Thesys Bionexo" className="lg:hidden w-14 h-14 rounded-xl mb-8" />
 
         <div className="w-full max-w-sm">
           <Outlet />

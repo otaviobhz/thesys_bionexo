@@ -45,22 +45,22 @@ export function AppSidebar() {
         )}
       >
         {/* Header */}
-        <div className={cn("flex items-center h-16 px-4", collapsed ? "justify-center" : "gap-3")}>
-          <img src="/favicon.png" alt="Thesys Bionexo" className="w-8 h-8 rounded-lg" />
-          {!collapsed && (
-            <>
-              <div className="flex flex-col flex-1">
-                <span className="text-sm font-semibold text-sidebar-foreground">Thesys Bionexo</span>
-                <span className="text-xs text-sidebar-foreground/60">v2026.03.26</span>
-              </div>
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-1.5 rounded-lg hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
-                title={theme === "dark" ? "Modo Claro" : "Modo Escuro"}
-              >
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
-            </>
+        <div className={cn("flex items-center px-3", collapsed ? "justify-center h-14" : "h-16")}>
+          {collapsed ? (
+            <img
+              src={theme === "dark" ? "/favicon-dark.png" : "/favicon-light.png"}
+              alt="T·B"
+              className="w-9 h-9 object-contain"
+            />
+          ) : (
+            <div className="flex flex-col items-center w-full gap-1">
+              <img
+                src={theme === "dark" ? "/logo-dark.png" : "/logo-light.png"}
+                alt="Integração Thesys Bionexo"
+                className="w-full max-h-10 object-contain"
+              />
+              <span className="text-[10px] text-sidebar-foreground/50">{__APP_VERSION__}</span>
+            </div>
           )}
         </div>
 
