@@ -148,6 +148,7 @@ model BionexoConfig {
   pollingInterval Int     @default(5)
   botAtivo        Boolean @default(false)
   ultimoToken     String? @default("0")
+  ultimoTokenWJG  String? @default("0")
 }
 
 model ThesysConfig {

@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import {
-  ArrowLeft, Send, Star, X, Ban, RefreshCw,
+  ArrowLeft, Send, Star, X, Ban, RefreshCw, Loader2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   GraduationCap, ArrowLeftRight, Check, AlertTriangle,
+  Search, Building2, FileSearch,
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { ModalAprender } from "@/components/modals/ModalAprender"
@@ -32,6 +33,10 @@ export function CotacaoDetalhePage() {
   const [loadingData, setLoadingData] = useState(true)
   const [modalAprenderOpen, setModalAprenderOpen] = useState(false)
   const [modalAprenderDesc, setModalAprenderDesc] = useState("")
+  const [wknResult, setWknResult] = useState<any[] | null>(null)
+  const [wknLoading, setWknLoading] = useState(false)
+  const [wmgResult, setWmgResult] = useState<any | null>(null)
+  const [wmgLoading, setWmgLoading] = useState(false)
 
   useEffect(() => {
     async function fetchCotacao() {
@@ -271,6 +276,40 @@ export function CotacaoDetalhePage() {
     }
   }
 
+  // WKN — Verificar status dos itens respondidos
+  async function handleVerificarStatus() {
+    setWknLoading(true)
+    try {
+      const { data } = await api.get(`/bionexo/status-itens/${cotacaoIdNum}`)
+      if (data.success && data.items?.length > 0) {
+        setWknResult(data.items)
+        showToast(`✅ ${data.items.length} item(s) com status`)
+      } else {
+        showToast("ℹ️ Sem status disponível para esta cotação")
+      }
+    } catch (e: any) {
+      showToast(`❌ ${e.response?.data?.message || e.message}`)
+    }
+    setWknLoading(false)
+  }
+
+  // WMG — Buscar cadastro do hospital
+  async function handleVerCadastro() {
+    if (!firstItem?.cnpjHospital) return
+    setWmgLoading(true)
+    try {
+      const { data } = await api.get(`/bionexo/cadastro/${encodeURIComponent(firstItem.cnpjHospital)}`)
+      if (data.success && data.empresas?.length > 0) {
+        setWmgResult(data.empresas[0])
+      } else {
+        showToast("ℹ️ Cadastro não encontrado para este CNPJ")
+      }
+    } catch (e: any) {
+      showToast(`❌ ${e.response?.data?.message || e.message}`)
+    }
+    setWmgLoading(false)
+  }
+
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 3000)
@@ -361,10 +400,43 @@ export function CotacaoDetalhePage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground">CNPJ Hospital</p>
-            <p className="text-sm font-semibold">{firstItem.cnpjHospital}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">{firstItem.cnpjHospital}</p>
+              <Button variant="ghost" size="icon-sm" title="Ver Cadastro (WMG)" onClick={handleVerCadastro} disabled={wmgLoading}>
+                {wmgLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Building2 className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* WMG — Cadastro do Hospital */}
+      {wmgResult && (
+        <Card className="border-blue-500/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Cadastro do Hospital
+              <Button variant="ghost" size="icon-sm" className="ml-auto" onClick={() => setWmgResult(null)}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div><span className="text-muted-foreground">Razão Social:</span><br /><strong>{wmgResult.razaoSocial}</strong></div>
+              <div><span className="text-muted-foreground">Nome Fantasia:</span><br /><strong>{wmgResult.nomeFantasia}</strong></div>
+              <div><span className="text-muted-foreground">CNPJ:</span><br /><strong>{wmgResult.cnpj}</strong></div>
+              <div><span className="text-muted-foreground">Endereço:</span><br /><strong>{wmgResult.logradouro}</strong></div>
+              <div><span className="text-muted-foreground">Cidade/UF:</span><br /><strong>{wmgResult.cidade} - {wmgResult.estadoSigla}</strong></div>
+              <div><span className="text-muted-foreground">CEP:</span><br /><strong>{wmgResult.cep}</strong></div>
+              <div><span className="text-muted-foreground">Telefone:</span><br /><strong>{wmgResult.telefone}</strong></div>
+              <div><span className="text-muted-foreground">Email:</span><br /><strong>{wmgResult.email}</strong></div>
+              <div><span className="text-muted-foreground">Tipo:</span><br /><strong>{wmgResult.tipoEmpresa}</strong></div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Orientacoes do comprador */}
       {orientacoes && (
@@ -755,12 +827,53 @@ export function CotacaoDetalhePage() {
                 <Button variant="outline" size="sm" onClick={handleUpdateCotacao}>
                   <RefreshCw className="h-4 w-4 mr-1" /> Atualizar Cotação
                 </Button>
+                <Button variant="outline" size="sm" onClick={handleVerificarStatus} disabled={wknLoading}>
+                  {wknLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileSearch className="h-4 w-4 mr-1" />}
+                  Verificar Status
+                </Button>
                 <Button variant="destructive" size="sm" onClick={handleCancelCotacao}>
                   <Ban className="h-4 w-4 mr-1" /> Cancelar Cotação
                 </Button>
               </>
             )}
           </div>
+
+          {/* WKN — Resultado do status dos itens */}
+          {wknResult && wknResult.length > 0 && (
+            <div className="border-t pt-3 mt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <FileSearch className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium">Status dos Itens (WKN)</span>
+                <Button variant="ghost" size="icon-sm" onClick={() => setWknResult(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="rounded border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-2">Id Artigo</th>
+                      <th className="text-left p-2">Código Produto</th>
+                      <th className="text-left p-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wknResult.map((item: any, i: number) => (
+                      <tr key={i} className="border-t">
+                        <td className="p-2">{item.idArtigo}</td>
+                        <td className="p-2">{item.codigoProduto}</td>
+                        <td className="p-2">
+                          <Badge variant={item.status === 'Em analise pelo hospital' ? 'default' : item.status === 'Cancelado' ? 'destructive' : 'secondary'}>
+                            {item.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       {/* Modal Aprender */}

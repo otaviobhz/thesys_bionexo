@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select } from "@/components/ui/select"
-import { Save, TestTube2, Power, Loader2, Eye, EyeOff, Bug, CheckCircle2, XCircle, Clock } from "lucide-react"
-import { api } from "@/lib/api"
+import { Save, TestTube2, Power, Loader2, Eye, EyeOff, Bug, CheckCircle2, XCircle, Clock, AlertTriangle, Trash2, RefreshCw, Database } from "lucide-react"
+import { api, getStoredUser } from "@/lib/api"
 
 interface DebugStep {
   step: number
@@ -121,7 +121,7 @@ export function ConfigPage() {
     SANDBOX: {
       usuario: 'ws_promeho_sand_76283',
       senha: 'xjtzJnz9FNmB62',
-      wsdlUrl: 'https://ws-bionexo-sandbox-ssl.bionexo.com/ws2/BionexoBean?wsdl',
+      wsdlUrl: 'https://ws-bionexo-sandbox.bionexo.com/ws2/BionexoBean?wsdl',
     },
     PRODUCAO: {
       usuario: 'ws_promeho_prod_152566',
@@ -405,7 +405,116 @@ export function ConfigPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Zona de Perigo — apenas MASTER */}
+        {getStoredUser()?.perfil === 'MASTER' && (
+          <ResetHomologacaoSection />
+        )}
       </div>
     </div>
+  )
+}
+
+function ResetHomologacaoSection() {
+  const [loading, setLoading] = useState("")
+  const [result, setResult] = useState<string | null>(null)
+  const [confirmAction, setConfirmAction] = useState<"reset" | "limpar" | null>(null)
+
+  async function handleAction(limparTudo: boolean) {
+    setLoading(limparTudo ? "limpar" : "reset")
+    setResult(null)
+    try {
+      const { data } = await api.post('/bionexo/reset-homologacao', { limparTudo })
+      setResult(`✅ ${data.message}`)
+    } catch (e: any) {
+      setResult(`❌ ${e.response?.data?.message || e.message}`)
+    }
+    setLoading("")
+    setConfirmAction(null)
+  }
+
+  return (
+    <Card className="border-rose-500/50">
+      <CardHeader>
+        <CardTitle className="text-rose-600 dark:text-rose-400 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5" />
+          Zona de Perigo
+        </CardTitle>
+        <CardDescription>Ações destrutivas para ambiente de homologação</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Opção 0: Inserir cotações de teste */}
+        <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
+          <h4 className="font-medium text-sm mb-1">Inserir Cotações de Teste</h4>
+          <p className="text-xs text-muted-foreground mb-3">
+            Insere 3 cotações com itens reais no banco para testar o fluxo completo
+            (marcar interessante, preencher preço, enviar WHS). Não duplica se já existirem.
+          </p>
+          <Button variant="outline" size="sm" className="border-blue-500 text-blue-700 dark:text-blue-400"
+            onClick={async () => {
+              setLoading("seed")
+              setResult(null)
+              try {
+                const { data } = await api.post('/bionexo/seed-teste')
+                setResult(`✅ ${data.message}`)
+              } catch (e: any) {
+                setResult(`❌ ${e.response?.data?.message || e.message}`)
+              }
+              setLoading("")
+            }}
+            disabled={!!loading}
+          >
+            {loading === "seed" ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Inserindo...</> : <><Database className="h-4 w-4 mr-1" /> Inserir Cotações de Teste</>}
+          </Button>
+        </div>
+
+        {/* Opção 1: Resetar status */}
+        <div className="p-4 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+          <h4 className="font-medium text-sm mb-1">Resetar Status</h4>
+          <p className="text-xs text-muted-foreground mb-3">
+            Volta cotações para RECEBIDO, limpa preços e pareamentos. As cotações e itens ficam no banco.
+          </p>
+          {confirmAction !== "reset" ? (
+            <Button variant="outline" size="sm" className="border-amber-500 text-amber-700 dark:text-amber-400" onClick={() => setConfirmAction("reset")}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Resetar Status
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="destructive" size="sm" onClick={() => handleAction(false)} disabled={!!loading}>
+                {loading === "reset" ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Resetando...</> : 'Confirmar Reset'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmAction(null)} disabled={!!loading}>Cancelar</Button>
+            </div>
+          )}
+        </div>
+
+        {/* Opção 2: Limpar tudo */}
+        <div className="p-4 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20">
+          <h4 className="font-medium text-sm mb-1">Limpar Tudo</h4>
+          <p className="text-xs text-muted-foreground mb-3">
+            Apaga TODAS as cotações, itens, pedidos e logs. O banco fica vazio.
+            Use "Receber novos" depois para baixar cotações do Bionexo.
+          </p>
+          {confirmAction !== "limpar" ? (
+            <Button variant="destructive" size="sm" onClick={() => setConfirmAction("limpar")}>
+              <Trash2 className="h-4 w-4 mr-1" /> Limpar Tudo
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="destructive" size="sm" onClick={() => handleAction(true)} disabled={!!loading}>
+                {loading === "limpar" ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Apagando...</> : 'Confirmar — Apagar Tudo'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmAction(null)} disabled={!!loading}>Cancelar</Button>
+            </div>
+          )}
+        </div>
+
+        {result && (
+          <p className={`text-xs px-3 py-2 rounded ${result.startsWith('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'}`}>
+            {result}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }

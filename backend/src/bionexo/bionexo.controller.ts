@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BionexoService } from './bionexo.service';
 import { BionexoProcessor } from './bionexo.processor';
@@ -50,5 +50,26 @@ export class BionexoController {
   @Get('status-itens/:idPdc')
   verificarStatus(@Param('idPdc') idPdc: string) {
     return this.bionexoService.verificarStatus(parseInt(idPdc))
+  }
+
+  @Get('cadastro/:cnpj')
+  buscarCadastro(@Param('cnpj') cnpj: string) {
+    return this.bionexoService.buscarCadastro(cnpj)
+  }
+
+  @Post('seed-teste')
+  seedTeste(@Request() req: any) {
+    if (req.user?.perfil !== 'MASTER') {
+      throw new ForbiddenException('Apenas usuários MASTER')
+    }
+    return this.bionexoService.seedCotacoesTeste()
+  }
+
+  @Post('reset-homologacao')
+  resetHomologacao(@Request() req: any, @Body() body?: { limparTudo?: boolean }) {
+    if (req.user?.perfil !== 'MASTER') {
+      throw new ForbiddenException('Apenas usuários MASTER podem resetar a homologação')
+    }
+    return this.bionexoService.resetHomologacao(body?.limparTudo ?? false)
   }
 }

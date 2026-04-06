@@ -140,6 +140,20 @@ export function CotacoesPage() {
     setTimeout(() => setActionMsg(""), 5000)
   }
 
+  async function handleAtualizarBionexo() {
+    setActionLoading("atualizar")
+    setActionMsg("")
+    try {
+      const { data } = await api.post('/bionexo/atualizar')
+      setActionMsg(`✅ ${data.mensagem || 'Prorrogações e pedidos atualizados'}`)
+    } catch (e: any) {
+      setActionMsg(`❌ Erro: ${e.response?.data?.message || e.message}`)
+    }
+    setActionLoading("")
+    fetchData()
+    setTimeout(() => setActionMsg(""), 5000)
+  }
+
   // Group items by cotacaoId, sort GROUPS, then flatten
   const filtered = useMemo(() => {
     let data = [...allItems]
@@ -329,8 +343,8 @@ export function CotacoesPage() {
           <Button variant="success" size="sm" className="text-xs h-7" onClick={handleReceberNovos} disabled={actionLoading === "receber"}>
             {actionLoading === "receber" ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Recebendo...</> : <><Download className="h-3.5 w-3.5 mr-1" /> Receber novos</>}
           </Button>
-          <Button variant="outline" size="sm" className="text-xs h-7">
-            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Atualizar
+          <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleAtualizarBionexo} disabled={actionLoading === "atualizar"}>
+            {actionLoading === "atualizar" ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Atualizando...</> : <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Atualizar Bionexo</>}
           </Button>
         </div>
       </div>

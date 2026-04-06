@@ -85,6 +85,11 @@ export class BionexoService {
             reject(new Error(`Bionexo retornou HTTP 503. Servidor pode estar em manutencao ou rate limit atingido.`))
             return
           }
+          if (!body || body.trim().length === 0) {
+            this.logger.warn(`[SOAP] Corpo vazio recebido (HTTP ${res.statusCode}). Retornando como vazio.`)
+            resolve('0;;null')
+            return
+          }
           const match = body.match(/<return>([\s\S]*?)<\/return>/)
           if (match) {
             resolve(match[1])
@@ -320,10 +325,25 @@ export class BionexoService {
   async atualizar() {
     try {
       const config = await this.getConfig()
-      const params = `TOKEN=${config.ultimoToken || '0'};ISO=0`
 
       // WGA — Prorrogações/antecipações de vencimento
-      const resWGA = await this.callRequest('WGA', params)
+      // Doc v3.14 pág 17: usar DT_BEGIN/DT_END (TOKEN descontinuado desde v3.5)
+      // Range recomendado: 5 minutos antes da hora atual
+      const now = new Date()
+      const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000)
+      const formatDt = (d: Date) => {
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        const yyyy = d.getFullYear()
+        const hh = String(d.getHours()).padStart(2, '0')
+        const mi = String(d.getMinutes()).padStart(2, '0')
+        const ss = String(d.getSeconds()).padStart(2, '0')
+        return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`
+      }
+      const wgaParams = `DT_BEGIN=${formatDt(fiveMinAgo)};DT_END=${formatDt(now)};LAYOUT=WG;ISO=0`
+      this.logger.log(`[WGA] Buscando prorrogações: ${wgaParams}`)
+
+      const resWGA = await this.callRequest('WGA', wgaParams)
       let wgaSaved = 0
       if (resWGA.status > 0 && resWGA.data && resWGA.data !== 'null') {
         wgaSaved = await this.parseAndUpdateWGA(resWGA.data)
@@ -337,12 +357,27 @@ export class BionexoService {
         },
       })
 
-      // WJG — Pedidos confirmados (CORRIGIDO: era WJG)
-      const resWJG = await this.callRequest('WJG', `TOKEN=0;LAYOUT=WJ;ISO=0`)
+      // WJG — Pedidos confirmados
+      // Doc v3.14 pág 19: TOKEN=0 não é recomendado (pode causar timeout)
+      // Usar ultimoTokenWJG armazenado (token WJG é separado do WGG)
+      const tokenWJG = config.ultimoTokenWJG || '0'
+      const wjgParams = `TOKEN=${tokenWJG};LAYOUT=WJ;ISO=0`
+      this.logger.log(`[WJG] Buscando pedidos confirmados: ${wjgParams}`)
+
+      const resWJG = await this.callRequest('WJG', wjgParams)
       let wijSaved = 0
       if (resWJG.status > 0 && resWJG.data && resWJG.data !== 'null') {
         wijSaved = await this.parseAndSaveWJG(resWJG.data)
       }
+
+      // Atualizar token WJG se retornou novo (doc: ID_PDC retornado deve ser o próximo TOKEN)
+      if (resWJG.timestamp && resWJG.timestamp !== '0') {
+        await this.prisma.bionexoConfig.update({
+          where: { id: config.id },
+          data: { ultimoTokenWJG: resWJG.timestamp },
+        })
+      }
+
       const log = await this.prisma.syncLog.create({
         data: {
           operacao: 'WJG', direcao: 'IN',
@@ -503,6 +538,258 @@ export class BionexoService {
       }
     }
     return statusItems
+  }
+
+  // ==================== WMG — Dados Cadastrais do Comprador ====================
+
+  async buscarCadastro(cnpj: string) {
+    try {
+      // Doc v3.14 pág 23: WMG busca por CNPJ, formato XX.XXX.XXX/XXXX-XX
+      const params = `ISO=0;LAYOUT=WM;CNPJ=${cnpj}`
+      this.logger.log(`[WMG] Buscando cadastro: ${params}`)
+
+      const response = await this.callRequest('WMG', params)
+
+      if (response.status > 0 && response.data && response.data !== 'null') {
+        const empresas = await this.parseWMG(response.data)
+        await this.prisma.syncLog.create({
+          data: { operacao: 'WMG', direcao: 'IN', status: 'SUCESSO', mensagem: `CNPJ ${cnpj}: ${empresas.length} empresa(s) encontrada(s)`, processadas: empresas.length },
+        })
+        return { success: true, empresas }
+      }
+
+      await this.prisma.syncLog.create({
+        data: { operacao: 'WMG', direcao: 'IN', status: 'SUCESSO', mensagem: `CNPJ ${cnpj}: nenhum cadastro encontrado`, processadas: 0 },
+      })
+      return { success: true, empresas: [], message: 'Nenhum cadastro encontrado' }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Erro'
+      await this.prisma.syncLog.create({
+        data: { operacao: 'WMG', direcao: 'IN', status: 'ERRO', mensagem: `CNPJ ${cnpj}: ${msg}`, processadas: 0 },
+      })
+      return { success: false, message: msg }
+    }
+  }
+
+  private async parseWMG(xmlData: string): Promise<any[]> {
+    const parser = new xml2js.Parser({ explicitArray: false })
+    const result = await parser.parseStringPromise(xmlData)
+    const empresas = this.toArray(result?.Empresas?.Empresa)
+
+    return empresas.map((emp: any) => ({
+      razaoSocial: emp.Razao_Social || '',
+      nomeFantasia: emp.Nome_Fantasia || '',
+      cnpj: emp.CNPJ || '',
+      inscricaoEstadual: emp.Inscricao_Estadual || '',
+      cep: emp.CEP || '',
+      logradouro: emp.Logradouro || '',
+      cidade: emp.Cidade || '',
+      estado: emp.Estado || '',
+      estadoSigla: emp.Estado_Sigla || '',
+      pais: emp.Pais || '',
+      telefone: emp.Telefone || '',
+      fax: emp.Fax || '',
+      contato: emp.Contato || '',
+      email: emp.Email || '',
+      tipoEmpresa: emp.Tipo_Empresa || '',
+      categoria: emp.Categoria || '',
+    }))
+  }
+
+  // ==================== Seed Cotações de Teste ====================
+
+  async seedCotacoesTeste() {
+    this.logger.log('[SEED] Inserindo cotações de teste para homologação...')
+
+    const cotacoesTeste = [
+      {
+        bionexoId: 211652791,
+        tituloPdc: 'Cotação criada por automação',
+        nomeHospital: 'Automacao Cypress Classica Filial 1',
+        cnpjHospital: '74.715.947/0001-15',
+        ufHospital: 'PI',
+        cidadeHospital: 'ACAUÃ',
+        dataVencimento: new Date('2030-03-24'),
+        horaVencimento: '19:03',
+        idFormaPagamento: 30,
+        formaPagamento: '30 DDL',
+        contato: 'Automação Cypress',
+        observacaoComprador: 'Cotação de teste para homologação EDI',
+        termos: 'Obrigatório fornecimento de Materiais Hospitalares. A entrega deve ser no máximo em 15 dias.',
+        itens: {
+          create: [
+            {
+              sequencia: 1,
+              idArtigo: 136822011,
+              descricaoBionexo: 'AAS | 100mg | Comprimido | SANOFI MEDLEY',
+              quantidade: 10.0,
+              unidadeMedida: 'Comprimido',
+              idUnidadeMedida: 29,
+              marcaFavorita: 'SANOFI MEDLEY',
+              codigoProduto: '11781528',
+            },
+          ],
+        },
+      },
+      {
+        bionexoId: 211652737,
+        tituloPdc: 'Cotação de Materiais Hospitalares Diversos',
+        nomeHospital: 'Associação das Pioneiras Sociais - Rede Sarah',
+        cnpjHospital: '37.113.180/0004-70',
+        ufHospital: 'DF',
+        cidadeHospital: 'BRASÍLIA',
+        dataVencimento: new Date('2030-03-31'),
+        horaVencimento: '15:00',
+        idFormaPagamento: 3,
+        formaPagamento: '30 ddl',
+        contato: 'PATRICIA MARIA DE SEIXAS BITTENCOURT',
+        observacaoComprador: 'Obrigatório fornecimento de Materiais Hospitalares',
+        termos: 'A entrega deve ser no máximo em 15 dias.',
+        itens: {
+          create: [
+            {
+              sequencia: 1,
+              idArtigo: 136821959,
+              descricaoBionexo: 'CURATIVO FILME TRANSPARENTE, TIPO BARREIRA',
+              quantidade: 3.0,
+              unidadeMedida: 'Peça',
+              idUnidadeMedida: 8,
+              codigoProduto: '10001196',
+            },
+            {
+              sequencia: 2,
+              idArtigo: 136821960,
+              descricaoBionexo: 'COMPRESSA CAMPO OPERATORIO, 100% ALGODÃO',
+              quantidade: 2.0,
+              unidadeMedida: 'Pacote',
+              codigoProduto: '10001475',
+            },
+            {
+              sequencia: 3,
+              idArtigo: 136821961,
+              descricaoBionexo: 'LUVA CIRURGICA ESTERIL, LATEX, TAM 7.5',
+              quantidade: 50.0,
+              unidadeMedida: 'Par',
+              codigoProduto: '10002834',
+            },
+          ],
+        },
+      },
+      {
+        bionexoId: 211654500,
+        tituloPdc: 'Medicamentos Uso Contínuo - Abril/2026',
+        nomeHospital: 'Hospital Santa Maria',
+        cnpjHospital: '12.345.678/0001-90',
+        ufHospital: 'SP',
+        cidadeHospital: 'SÃO PAULO',
+        dataVencimento: new Date('2030-04-15'),
+        horaVencimento: '18:00',
+        idFormaPagamento: 1,
+        formaPagamento: 'A Vista',
+        contato: 'Farmácia Central',
+        observacaoComprador: 'Favor colocar nº do Pedido na NF',
+        itens: {
+          create: [
+            {
+              sequencia: 1,
+              idArtigo: 136830001,
+              descricaoBionexo: 'DIPIRONA SODICA 500MG | Comprimido | EMS',
+              quantidade: 1000.0,
+              unidadeMedida: 'Comprimido',
+              idUnidadeMedida: 29,
+              codigoProduto: '20001001',
+            },
+            {
+              sequencia: 2,
+              idArtigo: 136830002,
+              descricaoBionexo: 'AMOXICILINA 500MG | Cápsula | EUROFARMA',
+              quantidade: 500.0,
+              unidadeMedida: 'Cápsula',
+              idUnidadeMedida: 31,
+              codigoProduto: '20001002',
+            },
+          ],
+        },
+      },
+    ]
+
+    let created = 0
+    for (const cotacao of cotacoesTeste) {
+      const existing = await this.prisma.cotacao.findUnique({ where: { bionexoId: cotacao.bionexoId } })
+      if (existing) continue
+      await this.prisma.cotacao.create({ data: cotacao })
+      created++
+    }
+
+    this.logger.log(`[SEED] ${created} cotações de teste inseridas`)
+    return {
+      success: true,
+      message: `${created} cotações de teste inseridas com ${cotacoesTeste.reduce((sum, c) => sum + (c.itens.create?.length || 0), 0)} itens. Acesse a lista de cotações para testar o fluxo.`,
+      created,
+    }
+  }
+
+  // ==================== Reset Homologação ====================
+
+  async resetHomologacao(limparTudo = false) {
+    if (limparTudo) {
+      this.logger.warn('[RESET] LIMPANDO TUDO — apagando todas cotações, itens, pedidos e logs...')
+
+      // Ordem: itens primeiro (FK), depois cotações, pedidos, logs
+      const itens = await this.prisma.cotacaoItem.deleteMany({})
+      const cotacoes = await this.prisma.cotacao.deleteMany({})
+      const pedidos = await this.prisma.pedido.deleteMany({})
+      const logs = await this.prisma.syncLog.deleteMany({})
+
+      await this.prisma.bionexoConfig.updateMany({
+        data: { ultimoToken: '0', ultimoTokenWJG: '0' },
+      })
+
+      this.logger.warn(`[RESET] Tudo apagado: ${cotacoes.count} cotações, ${itens.count} itens, ${pedidos.count} pedidos, ${logs.count} logs`)
+
+      return {
+        success: true,
+        message: `Banco zerado: ${cotacoes.count} cotações apagadas, ${itens.count} itens, ${pedidos.count} pedidos, ${logs.count} logs removidos. Clique "Receber novos" para baixar do Bionexo.`,
+        cotacoes: cotacoes.count,
+        itens: itens.count,
+        pedidos: pedidos.count,
+        logs: logs.count,
+      }
+    }
+
+    this.logger.warn('[RESET] Resetando status de homologação (mantendo dados)...')
+
+    const cotacoes = await this.prisma.cotacao.updateMany({
+      data: { status: 'RECEBIDO', syncedAt: null },
+    })
+
+    const itens = await this.prisma.cotacaoItem.updateMany({
+      data: {
+        categoria: 'NAO_ANALISADO',
+        precoUnitario: null,
+        codigoInterno: null,
+        descricaoInterna: null,
+        comentario: null,
+        observacaoFornecedor: null,
+      },
+    })
+
+    const pedidos = await this.prisma.pedido.deleteMany({})
+    await this.prisma.bionexoConfig.updateMany({
+      data: { ultimoToken: '0', ultimoTokenWJG: '0' },
+    })
+    const logs = await this.prisma.syncLog.deleteMany({})
+
+    this.logger.warn(`[RESET] Concluído: ${cotacoes.count} cotações resetadas, ${itens.count} itens limpos, ${pedidos.count} pedidos removidos`)
+
+    return {
+      success: true,
+      message: `Homologação resetada: ${cotacoes.count} cotações → RECEBIDO, ${itens.count} itens limpos, ${pedidos.count} pedidos removidos`,
+      cotacoes: cotacoes.count,
+      itens: itens.count,
+      pedidos: pedidos.count,
+      logs: logs.count,
+    }
   }
 
   // ==================== Utilitários ====================
