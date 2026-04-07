@@ -68,8 +68,6 @@ export function CotacoesPage() {
         formaPagamento: item.formaPagamento || '',
         catComercial: item.catComercial || '',
         prioritaria: item.prioritaria || false,
-        qtdAproximada: Math.floor(Math.random() * 500) + 10,
-        qtdEmbalagem: 1,
       }))
       setAllItems(items)
     } catch (err) {
