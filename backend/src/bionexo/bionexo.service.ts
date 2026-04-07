@@ -129,12 +129,76 @@ export class BionexoService {
 
   // ==================== WGG — Receber Cotações ====================
 
+  /**
+   * Aplica regras de classificação automática a um item recém-recebido.
+   *
+   * Ordem de prioridade:
+   *  1. MapeamentoSku (de-para por descrição exata, case-insensitive) →
+   *     se bater, define codigoInterno + descricaoInterna + categoria=INTERESSANTE.
+   *  2. RegraPalavraChave (substring case-insensitive) →
+   *     se houver match DESCARTAR, vence (mais conservador).
+   *     Senão, se houver match INTERESSANTE, define categoria=INTERESSANTE.
+   *
+   * Retorna também a lista de IDs das regras que casaram, para incrementar o counter `matches`.
+   */
+  private classifyItem(
+    descricao: string,
+    mapeamentos: Array<{ descricaoComprador: string; skuThesys: string; descricaoInterna: string }>,
+    regras: Array<{ id: string; palavraChave: string; acaoAutomatica: 'INTERESSANTE' | 'DESCARTAR' }>,
+  ): {
+    categoria: 'NAO_ANALISADO' | 'INTERESSANTE' | 'DESCARTADO'
+    codigoInterno: string | null
+    descricaoInterna: string | null
+    matchedRegraIds: string[]
+  } {
+    const descUpper = (descricao || '').toUpperCase().trim()
+
+    // 1. Tenta de-para exato (case-insensitive)
+    const mapHit = mapeamentos.find(m => m.descricaoComprador.toUpperCase().trim() === descUpper)
+    if (mapHit) {
+      return {
+        categoria: 'INTERESSANTE',
+        codigoInterno: mapHit.skuThesys,
+        descricaoInterna: mapHit.descricaoInterna,
+        matchedRegraIds: [],
+      }
+    }
+
+    // 2. Tenta regras de palavra-chave (substring)
+    const matchedRegras = regras.filter(r => descUpper.includes(r.palavraChave.toUpperCase().trim()))
+    const hasDescartar = matchedRegras.some(r => r.acaoAutomatica === 'DESCARTAR')
+    const hasInteressante = matchedRegras.some(r => r.acaoAutomatica === 'INTERESSANTE')
+
+    let categoria: 'NAO_ANALISADO' | 'INTERESSANTE' | 'DESCARTADO' = 'NAO_ANALISADO'
+    if (hasDescartar) categoria = 'DESCARTADO'
+    else if (hasInteressante) categoria = 'INTERESSANTE'
+
+    return {
+      categoria,
+      codigoInterno: null,
+      descricaoInterna: null,
+      matchedRegraIds: matchedRegras.map(r => r.id),
+    }
+  }
+
   private async parseAndSaveWGG(xmlData: string): Promise<number> {
     const parser = new xml2js.Parser({ explicitArray: false })
     const result = await parser.parseStringPromise(xmlData)
 
     const pedidos = this.toArray(result?.Pedidos?.Pedido)
     if (pedidos.length === 0) return 0
+
+    // Carrega regras e mapeamentos UMA vez para todo o batch (evita N+1)
+    const [mapeamentos, regras] = await Promise.all([
+      this.prisma.mapeamentoSku.findMany(),
+      this.prisma.regraPalavraChave.findMany(),
+    ])
+
+    // Acumula contagem de matches por regra para incrementar atomicamente no fim
+    const regraMatchCount = new Map<string, number>()
+    const incrementMatches = (ids: string[]) => {
+      for (const id of ids) regraMatchCount.set(id, (regraMatchCount.get(id) || 0) + 1)
+    }
 
     let saved = 0
     for (const pedido of pedidos) {
@@ -169,22 +233,44 @@ export class BionexoService {
           observacaoComprador: cab.Observacao || null,
           termos: cab.Termo || null,
           itens: {
-            create: itensReq.map((item: any, idx: number) => ({
-              sequencia: parseInt(item.Sequencia) || idx + 1,
-              idArtigo: parseInt(item.Id_Artigo) || 0,
-              descricaoBionexo: item.Descricao_Produto || '',
-              quantidade: parseFloat(item.Quantidade) || 0,
-              unidadeMedida: item.Unidade_Medida || 'UN',
-              idUnidadeMedida: parseInt(item.Id_Unidade_Medida) || null,
-              marcaFavorita: item.Marca_Favorita || null,
-              codigoProduto: item.Codigo_Produto ? String(item.Codigo_Produto) : null,
-              marcas: this.extractMarcas(item),
-            })),
+            create: itensReq.map((item: any, idx: number) => {
+              const descricao = item.Descricao_Produto || ''
+              const classification = this.classifyItem(descricao, mapeamentos, regras)
+              incrementMatches(classification.matchedRegraIds)
+              return {
+                sequencia: parseInt(item.Sequencia) || idx + 1,
+                idArtigo: parseInt(item.Id_Artigo) || 0,
+                descricaoBionexo: descricao,
+                quantidade: parseFloat(item.Quantidade) || 0,
+                unidadeMedida: item.Unidade_Medida || 'UN',
+                idUnidadeMedida: parseInt(item.Id_Unidade_Medida) || null,
+                marcaFavorita: item.Marca_Favorita || null,
+                codigoProduto: item.Codigo_Produto ? String(item.Codigo_Produto) : null,
+                marcas: this.extractMarcas(item),
+                categoria: classification.categoria,
+                codigoInterno: classification.codigoInterno,
+                descricaoInterna: classification.descricaoInterna,
+              }
+            }),
           },
         },
       })
       saved++
     }
+
+    // Incrementa counter de matches em batch (uma update por regra que casou)
+    if (regraMatchCount.size > 0) {
+      await Promise.all(
+        Array.from(regraMatchCount.entries()).map(([id, count]) =>
+          this.prisma.regraPalavraChave.update({
+            where: { id },
+            data: { matches: { increment: count } },
+          }),
+        ),
+      )
+      this.logger.log(`[WGG] auto-aplicação: ${regraMatchCount.size} regras casaram, ${Array.from(regraMatchCount.values()).reduce((a, b) => a + b, 0)} matches totais`)
+    }
+
     return saved
   }
 
@@ -244,30 +330,69 @@ export class BionexoService {
 
   // ==================== WHS — Enviar Resposta ====================
 
+  /**
+   * Constrói o XML do WHS (Upload_Respostas_WH) conforme schema esperado
+   * pela classe Java `com.bionexo.bean.schema.WH_Resposta`.
+   *
+   * Schema oficial: Upload_Respostas_WH.xsd (não disponível no repo — manuais.bionexo.com.br offline)
+   *
+   * Inferência baseada em:
+   * - Erro do servidor: "field '_WH_Cabecalho' (xml name 'Cabecalho') is required field of class WH_Resposta"
+   *   → root element é WH_Resposta (não Pedidos)
+   *   → tem campo Cabecalho obrigatório
+   * - Doc EDI v3.14 §8: campos esperados são Id_Pdc, Id_Forma_Pagamento (cabeçalho)
+   *   e Id_Artigo, Preco_Unitario, Codigo_Produto_Fornecedor, Fabricante, Observacao (item)
+   * - Layout WG (download) usa namespace `http://www.bionexo.com.br` no XML real recebido
+   */
   private buildWHSXml(cotacao: any): string {
-    const itensXml = cotacao.itens.map((item: any) => {
-      const preco = (item.precoUnitario || 0).toFixed(2).replace('.', ',')
-      return `
-      <Item>
-        <Id_Artigo>${item.idArtigo}</Id_Artigo>
-        <Preco_Unitario>${preco}</Preco_Unitario>
-        <Codigo_Produto_Fornecedor>${item.codigoInterno || ''}</Codigo_Produto_Fornecedor>
-        <Fabricante>${item.marcaFavorita || ''}</Fabricante>
-        <Observacao>${item.comentario || ''}</Observacao>
-      </Item>`
-    }).join('')
+    const escapeXml = (s: string) =>
+      String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+
+    const itensXml = cotacao.itens
+      .map((item: any) => {
+        const preco = (item.precoUnitario || 0).toFixed(2).replace('.', ',')
+        return `    <Item_Pdc>
+      <Sequencia>${item.sequencia}</Sequencia>
+      <Id_Artigo>${item.idArtigo}</Id_Artigo>
+      <Codigo_Produto>${escapeXml(item.codigoProduto || '')}</Codigo_Produto>
+      <Codigo_Produto_Fornecedor>${escapeXml(item.codigoInterno || '')}</Codigo_Produto_Fornecedor>
+      <Preco_Unitario>${preco}</Preco_Unitario>
+      <Embalagem>${escapeXml(item.unidadeMedida || 'UN')}</Embalagem>
+      <Quantidade_Embalagem>1</Quantidade_Embalagem>
+      <Fabricante>${escapeXml(item.marcaFavorita || '')}</Fabricante>
+      <Observacao>${escapeXml(item.comentario || '')}</Observacao>
+    </Item_Pdc>`
+      })
+      .join('\n')
+
+    // Data atual e validade default 7 dias
+    const hoje = new Date()
+    const validadeData = new Date(hoje)
+    validadeData.setDate(hoje.getDate() + (cotacao.validadeDias || 7))
+    const formatDateBR = (d: Date) =>
+      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 
     return `<?xml version="1.0" encoding="UTF-8"?>
-<Pedidos>
-  <Pedido>
-    <Cabecalho>
-      <Id_Pdc>${cotacao.bionexoId}</Id_Pdc>
-      <Id_Forma_Pagamento>${cotacao.idFormaPagamento || 1}</Id_Forma_Pagamento>
-    </Cabecalho>
-    <Itens>${itensXml}
-    </Itens>
-  </Pedido>
-</Pedidos>`
+<WH_Resposta>
+  <Cabecalho>
+    <Id_Pdc>${cotacao.bionexoId}</Id_Pdc>
+    <CNPJ_Hospital>${escapeXml(cotacao.cnpjHospital || '')}</CNPJ_Hospital>
+    <Id_Forma_Pagamento>${cotacao.idFormaPagamento || 1}</Id_Forma_Pagamento>
+    <Faturamento_Minimo>${(cotacao.faturamentoMinimo || 0).toFixed(2).replace('.', ',')}</Faturamento_Minimo>
+    <Prazo_Entrega>${cotacao.prazoEntrega || 5}</Prazo_Entrega>
+    <Validade_Proposta>${formatDateBR(validadeData)}</Validade_Proposta>
+    <Frete>${escapeXml(cotacao.tipoFrete || 'CIF')}</Frete>
+    <Observacao>${escapeXml(cotacao.observacaoEnvio || '')}</Observacao>
+  </Cabecalho>
+  <Itens_Pdc>
+${itensXml}
+  </Itens_Pdc>
+</WH_Resposta>`
   }
 
   async enviarCotacao(cotacaoId: string) {
@@ -287,37 +412,47 @@ export class BionexoService {
     this.logger.log(`[WHS] Sending ${itensParaEnviar.length} items for PDC ${cotacao.bionexoId}`)
 
     let bionexoResult = 'Stub: sandbox sem dados'
+    let whsSuccess = false
     try {
       const response = await this.callPost('WHS', 'LAYOUT=WH', xml)
+      whsSuccess = response.status >= 0
       bionexoResult = response.status > 0
         ? `Bionexo: enviada com sucesso (ID: ${response.timestamp})`
         : response.status === 0 ? 'Bionexo: processada sem retorno'
         : `Bionexo: erro - ${response.data}`
     } catch (error: any) {
       bionexoResult = `Bionexo: ${this.formatBionexoError(error)}`
+      whsSuccess = false
     }
 
-    await this.prisma.cotacao.update({
-      where: { id: cotacaoId },
-      data: { status: 'COTACAO_ENVIADA', syncedAt: new Date() },
-    })
+    if (whsSuccess) {
+      await this.prisma.cotacao.update({
+        where: { id: cotacaoId },
+        data: { status: 'COTACAO_ENVIADA', syncedAt: new Date() },
+      })
 
-    await this.prisma.cotacaoItem.updateMany({
-      where: { cotacaoId, precoUnitario: { not: null } },
-      data: { categoria: 'COTADO' },
-    })
+      await this.prisma.cotacaoItem.updateMany({
+        where: { cotacaoId, precoUnitario: { not: null } },
+        data: { categoria: 'COTADO' },
+      })
+    }
 
     await this.prisma.syncLog.create({
       data: {
         operacao: 'WHS',
         direcao: 'OUT',
-        status: bionexoResult.includes('sucesso') || bionexoResult.includes('processada') ? 'SUCESSO' : 'ERRO',
+        status: whsSuccess ? 'SUCESSO' : 'ERRO',
         mensagem: `PDC ${cotacao.bionexoId}: ${bionexoResult} | ${itensParaEnviar.length} itens`,
         processadas: itensParaEnviar.length,
       },
     })
 
-    return { success: true, message: `Cotação ${cotacao.bionexoId} enviada` }
+    return {
+      success: whsSuccess,
+      message: `Cotação ${cotacao.bionexoId}: ${bionexoResult}`,
+      bionexoId: cotacao.bionexoId,
+      itensEnviados: itensParaEnviar.length,
+    }
   }
 
   // ==================== WGA — Prorrogações + WJG — Pedidos Confirmados ====================
@@ -713,19 +848,148 @@ export class BionexoService {
       },
     ]
 
+    // Carrega regras+mapeamentos uma vez para o batch (mesmo padrão de parseAndSaveWGG)
+    const [mapeamentos, regras] = await Promise.all([
+      this.prisma.mapeamentoSku.findMany(),
+      this.prisma.regraPalavraChave.findMany(),
+    ])
+    const regraMatchCount = new Map<string, number>()
+
     let created = 0
     for (const cotacao of cotacoesTeste) {
       const existing = await this.prisma.cotacao.findUnique({ where: { bionexoId: cotacao.bionexoId } })
       if (existing) continue
-      await this.prisma.cotacao.create({ data: cotacao })
+
+      // Aplica classificação automática a cada item antes de criar
+      const itensComClassificacao = cotacao.itens.create.map(item => {
+        const classification = this.classifyItem(item.descricaoBionexo, mapeamentos, regras)
+        for (const id of classification.matchedRegraIds) {
+          regraMatchCount.set(id, (regraMatchCount.get(id) || 0) + 1)
+        }
+        return {
+          ...item,
+          categoria: classification.categoria,
+          codigoInterno: classification.codigoInterno,
+          descricaoInterna: classification.descricaoInterna,
+        }
+      })
+
+      await this.prisma.cotacao.create({
+        data: {
+          ...cotacao,
+          itens: { create: itensComClassificacao },
+        },
+      })
       created++
     }
 
-    this.logger.log(`[SEED] ${created} cotações de teste inseridas`)
+    // Incrementa counter de matches
+    if (regraMatchCount.size > 0) {
+      await Promise.all(
+        Array.from(regraMatchCount.entries()).map(([id, count]) =>
+          this.prisma.regraPalavraChave.update({
+            where: { id },
+            data: { matches: { increment: count } },
+          }),
+        ),
+      )
+    }
+
+    this.logger.log(`[SEED] ${created} cotações de teste inseridas (${regraMatchCount.size} regras casaram)`)
     return {
       success: true,
       message: `${created} cotações de teste inseridas com ${cotacoesTeste.reduce((sum, c) => sum + (c.itens.create?.length || 0), 0)} itens. Acesse a lista de cotações para testar o fluxo.`,
       created,
+    }
+  }
+
+  /**
+   * S1.7 — Aplica regras de classificação automática (RegraPalavraChave + MapeamentoSku)
+   * a TODOS os itens existentes que ainda não foram processados ou pareados.
+   *
+   * Útil para:
+   * - Reprocessar itens históricos depois de criar uma nova regra
+   * - Limpar a "dívida histórica" depois de subir o S1.1 pela primeira vez
+   * - Re-rodar quando o operador adiciona novas keywords/mapeamentos
+   *
+   * Critério de seleção: itens com `categoria=NAO_ANALISADO` OU sem `codigoInterno`.
+   * Itens já cotados ou descartados manualmente NÃO são tocados.
+   */
+  async aplicarRegrasRetroativo(): Promise<{
+    total: number
+    classificados: number
+    pareados: number
+    matchesIncrementados: number
+  }> {
+    this.logger.log('[APLICAR-REGRAS] Iniciando aplicação retroativa...')
+
+    const [mapeamentos, regras, itens] = await Promise.all([
+      this.prisma.mapeamentoSku.findMany(),
+      this.prisma.regraPalavraChave.findMany(),
+      this.prisma.cotacaoItem.findMany({
+        where: {
+          OR: [
+            { categoria: 'NAO_ANALISADO' },
+            { codigoInterno: null },
+          ],
+        },
+        select: { id: true, descricaoBionexo: true, categoria: true, codigoInterno: true },
+      }),
+    ])
+
+    const regraMatchCount = new Map<string, number>()
+    let classificados = 0
+    let pareados = 0
+
+    for (const item of itens) {
+      const classification = this.classifyItem(item.descricaoBionexo, mapeamentos, regras)
+      const updateData: any = {}
+      let touched = false
+
+      // Só pareia se ainda não tem SKU
+      if (!item.codigoInterno && classification.codigoInterno) {
+        updateData.codigoInterno = classification.codigoInterno
+        updateData.descricaoInterna = classification.descricaoInterna
+        pareados++
+        touched = true
+      }
+
+      // Só classifica se ainda está NAO_ANALISADO
+      if (item.categoria === 'NAO_ANALISADO' && classification.categoria !== 'NAO_ANALISADO') {
+        updateData.categoria = classification.categoria
+        classificados++
+        touched = true
+      }
+
+      if (touched) {
+        await this.prisma.cotacaoItem.update({ where: { id: item.id }, data: updateData })
+        for (const id of classification.matchedRegraIds) {
+          regraMatchCount.set(id, (regraMatchCount.get(id) || 0) + 1)
+        }
+      }
+    }
+
+    if (regraMatchCount.size > 0) {
+      await Promise.all(
+        Array.from(regraMatchCount.entries()).map(([id, count]) =>
+          this.prisma.regraPalavraChave.update({
+            where: { id },
+            data: { matches: { increment: count } },
+          }),
+        ),
+      )
+    }
+
+    const matchesIncrementados = Array.from(regraMatchCount.values()).reduce((a, b) => a + b, 0)
+    this.logger.log(
+      `[APLICAR-REGRAS] ${itens.length} itens analisados, ${classificados} classificados, ${pareados} pareados, ${matchesIncrementados} matches incrementados`,
+    )
+
+    return {
+      total: itens.length,
+      classificados,
+      pareados,
+      matchesIncrementados,
     }
   }
 

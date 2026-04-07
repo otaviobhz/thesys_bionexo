@@ -65,6 +65,11 @@ export class BionexoController {
     return this.bionexoService.seedCotacoesTeste()
   }
 
+  @Post('aplicar-regras-retroativo')
+  aplicarRegrasRetroativo() {
+    return this.bionexoService.aplicarRegrasRetroativo()
+  }
+
   @Post('reset-homologacao')
   resetHomologacao(@Request() req: any, @Body() body?: { limparTudo?: boolean }) {
     if (req.user?.perfil !== 'MASTER') {
