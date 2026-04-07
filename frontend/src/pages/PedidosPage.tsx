@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { mockPedidos, formatDate, formatCurrency, type Pedido } from "@/lib/mock-data"
+import { ErrorBanner } from "@/components/ui/error-banner"
+import { formatDate, formatCurrency, type Pedido } from "@/lib/mock-data"
 import { api } from "@/lib/api"
 
 function getPedidoStatusColor(status: string): string {
@@ -17,13 +18,21 @@ function getPedidoStatusColor(status: string): string {
 export function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [_loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  function fetchPedidos() {
+    setLoading(true)
+    setError(null)
     api.get('/pedidos')
       .then(res => setPedidos(res.data))
-      .catch(() => setPedidos(mockPedidos))
+      .catch((err) => {
+        setPedidos([])
+        setError(err?.response?.data?.message || err?.message || 'Erro ao carregar pedidos. Verifique a conexão com o servidor.')
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchPedidos() }, [])
 
   return (
     <div className="space-y-6">
@@ -33,6 +42,8 @@ export function PedidosPage() {
           Pedidos gerados pelos hospitais após aceite da cotação
         </p>
       </div>
+
+      {error && <ErrorBanner title="Erro ao carregar pedidos" message={error} onRetry={fetchPedidos} />}
 
       <Card>
         <CardContent className="p-0">

@@ -4,12 +4,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  mockPareamentos,
   formatDate,
   type PareamentoSKU,
 } from "@/lib/mock-data"
 import { api } from "@/lib/api"
-import { Search, Undo2, Download, Upload, Info } from "lucide-react"
+import { Search, Undo2, Download, Upload, Info, AlertTriangle } from "lucide-react"
+import { toast } from "sonner"
 import * as XLSX from "xlsx"
 import { ImportInfoModal } from "@/components/modals/ImportInfoModal"
 
@@ -32,10 +32,12 @@ function TabPareamentos() {
   const [search, setSearch] = useState("")
   const [pareamentos, setPareamentos] = useState<PareamentoSKU[]>([])
   const [_loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showImportInfo, setShowImportInfo] = useState(false)
 
   function fetchPareamentos() {
     setLoading(true)
+    setError(null)
     api.get('/mapeamento')
       .then(res => {
         const data = res.data.map((p: any) => ({
@@ -47,7 +49,10 @@ function TabPareamentos() {
         }))
         setPareamentos(data)
       })
-      .catch(() => setPareamentos(mockPareamentos))
+      .catch((err) => {
+        setPareamentos([])
+        setError(err?.response?.data?.message || err?.message || 'Erro ao carregar dicionário De-Para. Verifique a conexão com o servidor.')
+      })
       .finally(() => setLoading(false))
   }
 
@@ -66,12 +71,26 @@ function TabPareamentos() {
   function handleDesfazer(id: string) {
     api.delete(`/mapeamento/${id}`)
       .then(() => fetchPareamentos())
-      .catch(() => setPareamentos((prev) => prev.filter((p) => p.id !== id)))
+      .catch((err) => {
+        toast.error(`Falha ao desfazer pareamento: ${err?.response?.data?.message || err?.message || 'erro de conexão'}`)
+      })
   }
 
   return (
     <Card>
       <CardContent className="p-6">
+        {error && (
+          <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">Erro ao carregar Dicionário De-Para</p>
+              <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchPareamentos} className="text-xs h-7 border-rose-300 text-rose-700 hover:bg-rose-100">
+              Tentar novamente
+            </Button>
+          </div>
+        )}
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

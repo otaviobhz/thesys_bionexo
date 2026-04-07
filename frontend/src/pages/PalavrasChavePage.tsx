@@ -4,16 +4,19 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select } from "@/components/ui/select"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import { cn } from "@/lib/utils"
 import { Plus, Search, Pencil, Trash2, Star, Ban, Sparkles, Download, Upload, Info } from "lucide-react"
-import { mockRegrasKeywords, formatDate, type RegraPalavraChave } from "@/lib/mock-data"
+import { formatDate, type RegraPalavraChave } from "@/lib/mock-data"
 import { api } from "@/lib/api"
+import { toast } from "sonner"
 import * as XLSX from "xlsx"
 import { ImportInfoModal } from "@/components/modals/ImportInfoModal"
 
 export function PalavrasChavePage() {
   const [keywords, setKeywords] = useState<RegraPalavraChave[]>([])
   const [_loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [acaoFilter, setAcaoFilter] = useState<string>("TODAS")
   const [showAddForm, setShowAddForm] = useState(false)
@@ -25,6 +28,7 @@ export function PalavrasChavePage() {
 
   function fetchKeywords() {
     setLoading(true)
+    setError(null)
     api.get('/keywords')
       .then(res => {
         const data = res.data.map((k: any) => ({
@@ -36,7 +40,10 @@ export function PalavrasChavePage() {
         }))
         setKeywords(data)
       })
-      .catch(() => setKeywords(mockRegrasKeywords))
+      .catch((err) => {
+        setKeywords([])
+        setError(err?.response?.data?.message || err?.message || 'Erro ao carregar palavras-chave. Verifique a conexão com o servidor.')
+      })
       .finally(() => setLoading(false))
   }
 
@@ -57,12 +64,12 @@ export function PalavrasChavePage() {
     if (!newKeyword.trim()) return
     if (editingId) {
       api.put(`/keywords/${editingId}`, { palavraChave: newKeyword, acaoAutomatica: newAcao })
-        .then(() => { resetForm(); fetchKeywords() })
-        .catch(() => {})
+        .then(() => { resetForm(); fetchKeywords(); toast.success('Regra atualizada') })
+        .catch((err) => toast.error(`Falha ao atualizar regra: ${err?.response?.data?.message || err?.message || 'erro'}`))
     } else {
       api.post('/keywords', { palavraChave: newKeyword, acaoAutomatica: newAcao })
-        .then(() => { resetForm(); fetchKeywords() })
-        .catch(() => {})
+        .then(() => { resetForm(); fetchKeywords(); toast.success('Regra criada') })
+        .catch((err) => toast.error(`Falha ao criar regra: ${err?.response?.data?.message || err?.message || 'erro'}`))
     }
   }
 
@@ -82,8 +89,8 @@ export function PalavrasChavePage() {
 
   function handleDelete(id: string) {
     api.delete(`/keywords/${id}`)
-      .then(() => fetchKeywords())
-      .catch(() => {})
+      .then(() => { fetchKeywords(); toast.success('Regra removida') })
+      .catch((err) => toast.error(`Falha ao remover regra: ${err?.response?.data?.message || err?.message || 'erro'}`))
   }
 
   function handleExportXLSX() {
@@ -126,6 +133,7 @@ export function PalavrasChavePage() {
 
   return (
     <div className="space-y-4">
+      {error && <ErrorBanner title="Erro ao carregar palavras-chave" message={error} onRetry={fetchKeywords} />}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

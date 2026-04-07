@@ -1,8 +1,18 @@
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { mockSyncLogs } from "@/lib/mock-data"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import { api } from "@/lib/api"
+
+type SyncLog = {
+  id: string
+  operacao: string
+  direcao: string
+  status: string
+  mensagem: string
+  processadas: number
+  createdAt: string
+}
 
 function getLogStatusColor(status: string) {
   if (status === "SUCESSO") return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
@@ -17,15 +27,23 @@ function getDirecaoColor(dir: string) {
 }
 
 export function SyncLogsPage() {
-  const [syncLogs, setSyncLogs] = useState<typeof mockSyncLogs>([])
+  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([])
   const [_loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  function fetchLogs() {
+    setLoading(true)
+    setError(null)
     api.get('/sync-logs')
       .then(res => setSyncLogs(res.data))
-      .catch(() => setSyncLogs(mockSyncLogs))
+      .catch((err) => {
+        setSyncLogs([])
+        setError(err?.response?.data?.message || err?.message || 'Erro ao carregar logs de sincronização. Verifique a conexão com o servidor.')
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchLogs() }, [])
 
   return (
     <div className="space-y-6">
@@ -35,6 +53,7 @@ export function SyncLogsPage() {
           Histórico de operações EDI e sincronizações
         </p>
       </div>
+      {error && <ErrorBanner title="Erro ao carregar logs" message={error} onRetry={fetchLogs} />}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">

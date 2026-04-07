@@ -3,17 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import { cn } from "@/lib/utils"
-import { mockUsuarios, type Usuario } from "@/lib/mock-data"
+import { type Usuario } from "@/lib/mock-data"
 import { api } from "@/lib/api"
 import { Search, Plus, Pencil, Lock, Unlock, Info } from "lucide-react"
 
 export function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [_loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   function fetchUsuarios() {
     setLoading(true)
+    setError(null)
     api.get('/usuarios')
       .then(res => {
         const data = res.data.map((u: any) => ({
@@ -26,7 +29,10 @@ export function UsuariosPage() {
         }))
         setUsuarios(data)
       })
-      .catch(() => setUsuarios(mockUsuarios))
+      .catch((err) => {
+        setUsuarios([])
+        setError(err?.response?.data?.message || err?.message || 'Erro ao carregar usuários. Verifique a conexão com o servidor.')
+      })
       .finally(() => setLoading(false))
   }
 
@@ -88,6 +94,8 @@ export function UsuariosPage() {
           Gerencie os utilizadores e suas permissões de acesso
         </p>
       </div>
+
+      {error && <ErrorBanner title="Erro ao carregar utilizadores" message={error} onRetry={fetchUsuarios} />}
 
       {/* Add User Form */}
       <Card>
