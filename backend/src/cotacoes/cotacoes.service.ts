@@ -1,7 +1,8 @@
-import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/common'
+import { Injectable, Inject, NotFoundException, forwardRef, Logger } from '@nestjs/common'
 import { CategoriaItem, Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { BionexoService } from '../bionexo/bionexo.service'
+import { ThesysService } from '../thesys/thesys.service'
 
 interface FindAllFilters {
   search?: string
@@ -40,10 +41,13 @@ export interface FlatCotacaoItem {
 
 @Injectable()
 export class CotacoesService {
+  private readonly logger = new Logger(CotacoesService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => BionexoService))
     private readonly bionexoService: BionexoService,
+    private readonly thesysService: ThesysService,
   ) {}
 
   async findAllFlat(filters: FindAllFilters): Promise<{
@@ -211,7 +215,107 @@ export class CotacoesService {
       )
     }
 
-    return this.bionexoService.enviarCotacao(cotacao.id)
+    // 1. Envia para Bionexo via WHS
+    const bionexoResult = await this.bionexoService.enviarCotacao(cotacao.id)
+
+    // 2. S1.9 — Se WHS sucesso, também envia para Thesys ERP
+    // Falha não bloqueia o fluxo principal: cotação já foi para o hospital via Bionexo,
+    // o que importa é fechar o loop com o ERP. Se Thesys falhar, log + retry manual.
+    if (bionexoResult?.success === true) {
+      try {
+        const cotacaoCompleta = await this.prisma.cotacao.findUnique({
+          where: { id: cotacao.id },
+          include: { itens: true },
+        })
+
+        if (!cotacaoCompleta) {
+          throw new Error('Cotação sumiu entre WHS e fetch para Thesys')
+        }
+
+        // Filtra apenas itens efetivamente cotados (com SKU + preço)
+        const itensCotados = cotacaoCompleta.itens.filter(
+          (i) => i.codigoInterno && i.precoUnitario != null && i.precoUnitario > 0,
+        )
+
+        if (itensCotados.length === 0) {
+          this.logger.warn(
+            `[S1.9] Cotação ${cotacaoId} enviada ao Bionexo mas SEM itens cotados (preço/SKU faltando) — não enviado ao Thesys`,
+          )
+        } else {
+          const thesysPayload = {
+            id_pdc: cotacaoCompleta.bionexoId,
+            cnpj_hospital: cotacaoCompleta.cnpjHospital,
+            nome_hospital: cotacaoCompleta.nomeHospital,
+            forma_pagamento: cotacaoCompleta.formaPagamento || '',
+            data_vencimento: cotacaoCompleta.dataVencimento.toISOString().split('T')[0],
+            itens: itensCotados.map((item) => ({
+              sequencia: item.sequencia,
+              sku: item.codigoInterno,
+              descricao_interna: item.descricaoInterna || '',
+              descricao_bionexo: item.descricaoBionexo,
+              quantidade: item.quantidade,
+              unidade: item.unidadeMedida,
+              preco_unitario: item.precoUnitario,
+              comentario: item.comentario || '',
+              observacao_fornecedor: item.observacaoFornecedor || '',
+            })),
+          }
+
+          const thesysResult = await this.thesysService.criarCotacao(thesysPayload)
+
+          // Se o Thesys retornou IDs (sucesso real), grava no banco
+          if (thesysResult && thesysResult.id_venda_cotacao) {
+            await this.prisma.cotacao.update({
+              where: { id: cotacao.id },
+              data: {
+                thesysVendaId: String(thesysResult.id_venda_cotacao),
+                thesysVendaNumero: thesysResult.numero ? String(thesysResult.numero) : null,
+              },
+            })
+
+            await this.prisma.syncLog.create({
+              data: {
+                operacao: 'THESYS_COTACAO',
+                direcao: 'OUT',
+                status: 'SUCESSO',
+                mensagem: `Cotação ${cotacaoCompleta.bionexoId} enviada para Thesys (venda nº ${thesysResult.numero})`,
+                processadas: itensCotados.length,
+              },
+            })
+            this.logger.log(
+              `[S1.9] Cotação ${cotacaoCompleta.bionexoId} integrada ao Thesys (venda ${thesysResult.numero})`,
+            )
+          } else {
+            // Resposta vazia ou erro estruturado do Thesys (ex: não configurado)
+            const errMsg = thesysResult?.error || 'resposta vazia do Thesys'
+            await this.prisma.syncLog.create({
+              data: {
+                operacao: 'THESYS_COTACAO',
+                direcao: 'OUT',
+                status: 'ERRO',
+                mensagem: `Cotação ${cotacaoCompleta.bionexoId} enviada ao Bionexo mas falhou no Thesys: ${errMsg}`,
+                processadas: 0,
+              },
+            })
+            this.logger.warn(`[S1.9] Thesys retornou sem id_venda_cotacao: ${errMsg}`)
+          }
+        }
+      } catch (thesysErr: any) {
+        // Falha no Thesys NÃO bloqueia o fluxo — Bionexo já recebeu
+        await this.prisma.syncLog.create({
+          data: {
+            operacao: 'THESYS_COTACAO',
+            direcao: 'OUT',
+            status: 'ERRO',
+            mensagem: `Cotação ${cotacaoId} enviada ao Bionexo mas falhou no Thesys: ${thesysErr?.message || 'erro desconhecido'}`,
+            processadas: 0,
+          },
+        })
+        this.logger.error(`[S1.9] Erro ao enviar para Thesys: ${thesysErr?.message}`)
+      }
+    }
+
+    return bionexoResult
   }
 
   async cancelarCotacao(cotacaoId: number) {

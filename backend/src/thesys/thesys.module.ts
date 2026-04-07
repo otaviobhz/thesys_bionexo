@@ -5,5 +5,6 @@ import { ThesysService } from './thesys.service';
 @Module({
   controllers: [ThesysController],
   providers: [ThesysService],
+  exports: [ThesysService],
 })
 export class ThesysModule {}
