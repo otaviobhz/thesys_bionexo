@@ -40,6 +40,8 @@ model Cotacao {
   prioritaria         Boolean       @default(false)
   status              CotacaoStatus @default(RECEBIDO)
   syncedAt            DateTime?
+  thesysVendaId       String?
+  thesysVendaNumero   String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   itens               CotacaoItem[]
@@ -94,6 +96,9 @@ model MapeamentoSku {
   skuThesys          String
   descricaoInterna   String
   createdAt          DateTime @default(now())
+
+  @@unique([descricaoComprador, skuThesys])
+  @@index([descricaoComprador])
 }
 
 model RegraPalavraChave {
@@ -102,6 +107,8 @@ model RegraPalavraChave {
   acaoAutomatica AcaoKeyword
   matches        Int         @default(0)
   createdAt      DateTime    @default(now())
+
+  @@index([palavraChave])
 }
 
 enum AcaoKeyword {
