@@ -11,3 +11,7 @@ coverage/
 .turbo/
 postgres-data/
 redis-data/
+.sprint0-evidence/
+test-results/
+playwright-report/
+playwright/.cache/
