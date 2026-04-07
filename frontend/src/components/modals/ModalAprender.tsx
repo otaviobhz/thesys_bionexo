@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { X, ChevronRight, ChevronsRight, ChevronLeft, ChevronsLeft, Search, Star, Ban } from "lucide-react"
+import { X, ChevronRight, ChevronsRight, ChevronLeft, ChevronsLeft, Search, Star, Ban, Loader2 } from "lucide-react"
+import { api } from "@/lib/api"
 
 const STOP_WORDS = new Set([
   "COM", "DE", "DO", "DA", "DOS", "DAS", "PARA", "POR", "EM", "NO", "NA", "NOS", "NAS",
@@ -43,13 +44,17 @@ export function ModalAprender({ open, onClose, descricaoBionexo }: ModalAprender
   const [searchLeft, setSearchLeft] = useState("")
   const [searchRight, setSearchRight] = useState("")
   const [acao, setAcao] = useState<"INTERESSANTE" | "DESCARTAR">("INTERESSANTE")
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Reset when description changes
-  useMemo(() => {
+  useEffect(() => {
     setAvailable(allWords)
     setSelected([])
     setSelectedLeft(new Set())
     setSelectedRight(new Set())
+    setSaving(false)
+    setSaveError(null)
   }, [allWords])
 
   const filteredAvailable = available.filter(w => !searchLeft || w.includes(searchLeft.toUpperCase()))
@@ -211,8 +216,29 @@ export function ModalAprender({ open, onClose, descricaoBionexo }: ModalAprender
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" disabled={selected.length === 0} onClick={onClose} className={acao === "INTERESSANTE" ? "bg-green-600 hover:bg-green-700" : "bg-rose-600 hover:bg-rose-700"}>
+          {saveError && <span className="text-xs text-destructive mr-auto">{saveError}</span>}
+          <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button
+            size="sm"
+            disabled={selected.length === 0 || saving}
+            onClick={async () => {
+              setSaving(true)
+              setSaveError(null)
+              try {
+                await api.post('/keywords', {
+                  palavraChave: selected.join(' '),
+                  acaoAutomatica: acao,
+                })
+                onClose()
+              } catch (e: any) {
+                setSaveError(e.response?.data?.message || e.message)
+              } finally {
+                setSaving(false)
+              }
+            }}
+            className={acao === "INTERESSANTE" ? "bg-green-600 hover:bg-green-700" : "bg-rose-600 hover:bg-rose-700"}
+          >
+            {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
             Salvar Regra ({selected.length} {selected.length === 1 ? "palavra" : "palavras"})
           </Button>
         </div>

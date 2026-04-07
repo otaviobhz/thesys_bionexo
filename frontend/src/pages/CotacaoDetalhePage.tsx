@@ -13,9 +13,10 @@ import {
   Search, Building2, FileSearch,
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { toast } from "sonner"
 import { ModalAprender } from "@/components/modals/ModalAprender"
+import { ModalParear } from "@/components/modals/ModalParear"
 import {
-  mockItensFlat,
   type CotacaoItemFlat,
   getStatusColor,
   getStatusLabel,
@@ -33,10 +34,13 @@ export function CotacaoDetalhePage() {
   const [loadingData, setLoadingData] = useState(true)
   const [modalAprenderOpen, setModalAprenderOpen] = useState(false)
   const [modalAprenderDesc, setModalAprenderDesc] = useState("")
+  const [modalParearOpen, setModalParearOpen] = useState(false)
+  const [modalParearItem, setModalParearItem] = useState<{ id: string; descricao: string } | null>(null)
   const [wknResult, setWknResult] = useState<any[] | null>(null)
   const [wknLoading, setWknLoading] = useState(false)
   const [wmgResult, setWmgResult] = useState<any | null>(null)
   const [wmgLoading, setWmgLoading] = useState(false)
+  const [savingItemId, setSavingItemId] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchCotacao() {
@@ -68,10 +72,10 @@ export function CotacaoDetalhePage() {
           orientacoesComprador: cotacao.orientacoesComprador || '',
           catComercial: cotacao.catComercial || '',
         }))
-        setAllItems(items.length > 0 ? items : mockItensFlat.filter((item) => item.cotacaoId === cotacaoIdNum))
-      } catch (err) {
+        setAllItems(items)
+      } catch (err: any) {
         console.error('Failed to fetch cotacao:', err)
-        setAllItems(mockItensFlat.filter((item) => item.cotacaoId === cotacaoIdNum))
+        setAllItems([])
       } finally {
         setLoadingData(false)
       }
@@ -144,8 +148,7 @@ export function CotacaoDetalhePage() {
     }))
   }, [allItems])
 
-  // Toast
-  const [toast, setToast] = useState<string | null>(null)
+  // Toast (via sonner — rendered in AppLayout)
 
   if (loadingData) {
     return (
@@ -217,10 +220,37 @@ export function CotacaoDetalhePage() {
     }))
   }
 
-  function handleSaveItem(itemId: string) {
-    // TODO: send to API - POST /cotacoes/:cotacaoId/itens/:itemId
-    void itemId
-    showToast("Item salvo com sucesso.")
+  async function handleSaveItem(itemId: string) {
+    const edit = editState[itemId]
+    if (!edit) return
+    setSavingItemId(itemId)
+    try {
+      const payload: Record<string, any> = {
+        codigoInterno: edit.codigoInterno || null,
+        comentario: edit.comentario || null,
+        observacaoFornecedor: edit.observacaoFornecedor || null,
+      }
+      if (edit.precoUnitario) {
+        const parsed = parseFloat(edit.precoUnitario)
+        if (isNaN(parsed)) {
+          showToast("❌ Preço unitário inválido.")
+          setSavingItemId(null)
+          return
+        }
+        payload.precoUnitario = parsed
+      }
+      const { data: updated } = await api.put(`/cotacoes/itens/${itemId}`, payload)
+      setAllItems(prev => prev.map(it =>
+        it.id === itemId
+          ? { ...it, codigoInterno: updated.codigoInterno || '', descricaoInterna: updated.descricaoInterna || '', precoUnitario: updated.precoUnitario, comentario: updated.comentario || '', observacaoFornecedor: updated.observacaoFornecedor || '', categoria: updated.categoria || it.categoria }
+          : it
+      ))
+      showToast("Item salvo com sucesso.")
+    } catch (e: any) {
+      showToast(`❌ Erro ao salvar: ${e.response?.data?.message || e.message}`)
+    } finally {
+      setSavingItemId(null)
+    }
   }
 
   function handleCancelItem(itemId: string) {
@@ -311,16 +341,43 @@ export function CotacaoDetalhePage() {
   }
 
   function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
+    if (msg.startsWith("❌")) {
+      toast.error(msg.replace("❌ ", ""))
+    } else if (msg.startsWith("✅")) {
+      toast.success(msg.replace("✅ ", ""))
+    } else if (msg.startsWith("ℹ️")) {
+      toast.info(msg.replace("ℹ️ ", ""))
+    } else {
+      toast.success(msg)
+    }
   }
 
   // Batch actions
-  function handleBatchDescartar() {
+  async function handleBatchDescartar() {
+    const ids = [...selectedIds]
+    try {
+      await api.post('/cotacoes/lote/descartar', { ids })
+      setAllItems(prev => prev.map(it =>
+        ids.includes(it.id) ? { ...it, categoria: 'DESCARTADO' } : it
+      ))
+      showToast(`${ids.length} item(s) descartado(s).`)
+    } catch (e: any) {
+      showToast(`❌ Erro: ${e.response?.data?.message || e.message}`)
+    }
     setSelectedIds(new Set())
   }
 
-  function handleBatchInteressante() {
+  async function handleBatchInteressante() {
+    const ids = [...selectedIds]
+    try {
+      await api.post('/cotacoes/lote/interessante', { ids })
+      setAllItems(prev => prev.map(it =>
+        ids.includes(it.id) ? { ...it, categoria: 'INTERESSANTE' } : it
+      ))
+      showToast(`${ids.length} item(s) marcado(s) como interessante.`)
+    } catch (e: any) {
+      showToast(`❌ Erro: ${e.response?.data?.message || e.message}`)
+    }
     setSelectedIds(new Set())
   }
 
@@ -333,21 +390,38 @@ export function CotacaoDetalhePage() {
   }
 
   function handleBatchParear() {
-    // Would open modal
+    const selectedItem = allItems.find(i => selectedIds.has(i.id))
+    if (selectedItem) {
+      setModalParearItem({ id: selectedItem.id, descricao: selectedItem.descricaoBionexo })
+      setModalParearOpen(true)
+    }
+  }
+
+  function handleParearSingle(item: { id: string; descricaoBionexo: string }) {
+    setModalParearItem({ id: item.id, descricao: item.descricaoBionexo })
+    setModalParearOpen(true)
+  }
+
+  function handleParearConfirm(sku: string, descricao: string) {
+    if (!modalParearItem) return
+    const itemId = modalParearItem.id
+    setAllItems(prev => prev.map(it =>
+      it.id === itemId ? { ...it, codigoInterno: sku, descricaoInterna: descricao } : it
+    ))
+    setEditState(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], codigoInterno: sku },
+    }))
+    showToast(`Produto pareado: ${sku}`)
     setSelectedIds(new Set())
+    setModalParearOpen(false)
+    setModalParearItem(null)
   }
 
   const currentEdit = activeItem ? editState[activeItem.id] : null
 
   return (
     <div className="space-y-4">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-green-600 text-white px-5 py-3 rounded-lg shadow-lg text-sm font-medium animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -610,11 +684,22 @@ export function CotacaoDetalhePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Produto (SKU)</label>
-                  <Input
-                    placeholder="Código SKU..."
-                    value={currentEdit.codigoInterno}
-                    onChange={(e) => updateEdit(activeItem.id, "codigoInterno", e.target.value)}
-                  />
+                  <div className="flex gap-1.5">
+                    <Input
+                      placeholder="Código SKU..."
+                      value={currentEdit.codigoInterno}
+                      onChange={(e) => updateEdit(activeItem.id, "codigoInterno", e.target.value)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      title="Buscar SKU no Thesys"
+                      onClick={() => handleParearSingle(activeItem)}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Preço Unitário</label>
@@ -654,8 +739,8 @@ export function CotacaoDetalhePage() {
             {/* Save/Cancel + Navigation */}
             <div className="border-t pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => handleSaveItem(activeItem.id)}>
-                  <Check className="h-4 w-4 mr-1" /> Salvar
+                <Button size="sm" onClick={() => handleSaveItem(activeItem.id)} disabled={savingItemId === activeItem.id}>
+                  {savingItemId === activeItem.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} Salvar
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleCancelItem(activeItem.id)}>
                   <X className="h-4 w-4 mr-1" /> Cancelar
@@ -882,6 +967,16 @@ export function CotacaoDetalhePage() {
         onClose={() => { setModalAprenderOpen(false); setSelectedIds(new Set()) }}
         descricaoBionexo={modalAprenderDesc}
       />
+      {/* Modal Parear */}
+      {modalParearItem && (
+        <ModalParear
+          open={modalParearOpen}
+          onClose={() => { setModalParearOpen(false); setModalParearItem(null); setSelectedIds(new Set()) }}
+          descricaoBionexo={modalParearItem.descricao}
+          itemId={modalParearItem.id}
+          onConfirm={handleParearConfirm}
+        />
+      )}
     </div>
   )
 }

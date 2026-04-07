@@ -3,6 +3,7 @@ import { useEffect } from "react"
 import { AppSidebar } from "./AppSidebar"
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context"
 import { isAuthenticated } from "@/lib/api"
+import { Toaster } from "sonner"
 
 function AppContent() {
   const { collapsed } = useSidebar()
@@ -36,6 +37,7 @@ export function AppLayout() {
       <div className="min-h-screen bg-background">
         <AppSidebar />
         <AppContent />
+        <Toaster position="top-right" richColors closeButton duration={3000} />
       </div>
     </SidebarProvider>
   )
