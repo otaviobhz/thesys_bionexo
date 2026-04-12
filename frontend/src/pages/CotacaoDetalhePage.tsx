@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, Link } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -128,7 +128,13 @@ export function CotacaoDetalhePage() {
     tipoFrete: "CIF",
   })
 
-  // Sync editState and activeItemId when allItems loads from API
+  // Tracks whether we've already auto-selected the first item on initial load.
+  // Prevents the useEffect below from re-selecting after user cancels (sets activeItemId=null).
+  const didInitRef = useRef(false)
+
+  // Sync editState when allItems loads/changes from API.
+  // activeItemId and sendData are only initialized ONCE on first load — after that,
+  // user selection (including Cancel → null) is respected.
   useEffect(() => {
     if (allItems.length === 0) return
     const state: Record<string, any> = {}
@@ -141,11 +147,14 @@ export function CotacaoDetalhePage() {
       }
     })
     setEditState(state)
-    setActiveItemId((prev) => prev ?? allItems[0]?.id ?? null)
-    setSendData((prev) => ({
-      ...prev,
-      condicaoPagamento: allItems[0]?.formaPagamento || prev.condicaoPagamento,
-    }))
+    if (!didInitRef.current) {
+      didInitRef.current = true
+      setActiveItemId(allItems[0]?.id ?? null)
+      setSendData((prev) => ({
+        ...prev,
+        condicaoPagamento: allItems[0]?.formaPagamento || prev.condicaoPagamento,
+      }))
+    }
   }, [allItems])
 
   // Toast (via sonner — rendered in AppLayout)
@@ -180,8 +189,12 @@ export function CotacaoDetalhePage() {
     ? allItems.filter((it) => it.categoria === "INTERESSANTE")
     : allItems
 
-  const activeItem = allItems.find((it) => it.id === activeItemId) ?? navItems[0]
-  const activeNavIdx = navItems.findIndex((it) => it.id === activeItem?.id)
+  // activeItem is null when user cancelled edit (activeItemId=null) → hides right panel.
+  // Stale activeItemId (item was removed) also yields null.
+  const activeItem = activeItemId
+    ? (allItems.find((it) => it.id === activeItemId) ?? null)
+    : null
+  const activeNavIdx = activeItem ? navItems.findIndex((it) => it.id === activeItem.id) : -1
 
   function navigateTo(idx: number) {
     if (idx >= 0 && idx < navItems.length) {
@@ -254,6 +267,7 @@ export function CotacaoDetalhePage() {
   }
 
   function handleCancelItem(itemId: string) {
+    // Reset the edit fields so when the user reopens the item, no stale unsaved changes remain.
     const item = allItems.find((it) => it.id === itemId)
     if (item) {
       setEditState((prev) => ({
@@ -266,6 +280,8 @@ export function CotacaoDetalhePage() {
         },
       }))
     }
+    // Close the right edit panel — user returns to the grid-only view.
+    setActiveItemId(null)
   }
 
   // Send validation
