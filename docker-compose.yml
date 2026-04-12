@@ -56,6 +56,9 @@ services:
       THESYS_APIKEY_PRECOS: ${THESYS_APIKEY_PRECOS}
       THESYS_APIKEY_HOSPITAIS: ${THESYS_APIKEY_HOSPITAIS}
       THESYS_APIKEY_COTACAO: ${THESYS_APIKEY_COTACAO}
+      DOCS_ROOT: /app/docs
+    volumes:
+      - ./docs:/app/docs:ro
     depends_on:
       postgres:
         condition: service_healthy

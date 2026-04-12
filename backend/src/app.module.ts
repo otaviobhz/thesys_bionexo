@@ -12,6 +12,7 @@ import { SyncLogsModule } from './sync-logs/sync-logs.module'
 import { PedidosModule } from './pedidos/pedidos.module'
 import { BionexoModule } from './bionexo/bionexo.module'
 import { ThesysModule } from './thesys/thesys.module'
+import { DocsModule } from './docs/docs.module'
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ThesysModule } from './thesys/thesys.module'
     PedidosModule,
     BionexoModule,
     ThesysModule,
+    DocsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

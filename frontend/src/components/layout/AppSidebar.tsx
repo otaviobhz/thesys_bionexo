@@ -15,6 +15,7 @@ import {
   Moon,
   Sun,
   LogOut,
+  BookOpen,
 } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
@@ -27,6 +28,7 @@ const menuItems = [
   { icon: ShoppingCart, label: "Pedidos", path: "/pedidos" },
   { icon: Users, label: "Utilizadores", path: "/usuarios" },
   { icon: Activity, label: "Logs de Sync", path: "/sync-logs" },
+  { icon: BookOpen, label: "Documentação", path: "/documentacao" },
   { icon: Settings, label: "Configurações", path: "/config" },
 ]
 

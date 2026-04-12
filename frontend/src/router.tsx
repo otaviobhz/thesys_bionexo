@@ -10,6 +10,7 @@ import { PedidosPage } from "@/pages/PedidosPage"
 import { UsuariosPage } from "@/pages/UsuariosPage"
 import { ConfigPage } from "@/pages/ConfigPage"
 import { SyncLogsPage } from "@/pages/SyncLogsPage"
+import { DocumentacaoPage } from "@/pages/DocumentacaoPage"
 
 const rootRoute = createRootRoute()
 
@@ -79,6 +80,12 @@ const syncLogsRoute = createRoute({
   component: SyncLogsPage,
 })
 
+const documentacaoRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/documentacao",
+  component: DocumentacaoPage,
+})
+
 const routeTree = rootRoute.addChildren([
   authRoute.addChildren([loginRoute]),
   appRoute.addChildren([
@@ -90,6 +97,7 @@ const routeTree = rootRoute.addChildren([
     usuariosRoute,
     configRoute,
     syncLogsRoute,
+    documentacaoRoute,
   ]),
 ])
 

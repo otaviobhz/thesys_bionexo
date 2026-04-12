@@ -27,5 +27,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
+    // Permite acesso via Cloudflare Tunnel (.trycloudflare.com)
+    // e qualquer subdomínio. Use 'all' = aceita qualquer host.
+    allowedHosts: ['.trycloudflare.com', 'localhost', '10.147.20.85'],
   },
 })
